@@ -6,6 +6,7 @@ pub mod frontend;
 pub mod pcs;
 pub mod piop;
 pub mod poly;
+// pub mod transform;
 pub mod util;
 
 pub use halo2_curves;
@@ -18,4 +19,9 @@ pub enum Error {
     InvalidSnark(String),
     Serialization(String),
     Transcript(std::io::ErrorKind, String),
+    NotImplemented(String),
+    InternalError(String),
+    InvalidRotation(String),
+    InvalidQuotient(String),
+    InvalidInput(String),
 }

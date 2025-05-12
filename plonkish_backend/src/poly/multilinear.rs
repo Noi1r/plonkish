@@ -207,73 +207,100 @@ impl<F: Field> MultilinearPolynomial<F> {
             return vec![self.evaluate(x)];
         }
 
-        let distance = rotation.distance();
-        let num_x = self.num_vars - distance;
-        let mut evals = vec![F::ZERO; 1 << distance];
-        let chunk_size = div_ceil(evals.len(), num_threads());
-        if rotation < Rotation::cur() {
-            let x = &x[distance..];
-            let flipped_x = x.iter().map(flip).collect_vec();
-            let pattern = rotation_eval_point_pattern::<false>(self.num_vars, distance);
-            let offset_mask = (1 << self.num_vars) - (1 << num_x);
-            parallelize_iter(
-                evals.chunks_mut(chunk_size).zip(pattern.chunks(chunk_size)),
-                |(evals, pattern)| {
-                    let mut buf = Vec::with_capacity(1 << (num_x - 1));
-                    let mut last_buf = Some(Vec::with_capacity(1 << (num_x - 1)));
-                    for (eval, pat) in evals.iter_mut().zip(pattern.iter()) {
-                        let offset = pat & offset_mask;
-                        let mut evals = Cow::Borrowed(&self[offset..offset + (1 << num_x)]);
-                        for (idx, (x_i, flipped_x_i)) in x.iter().zip(flipped_x.iter()).enumerate()
-                        {
-                            let x_i = if pat.nth_bit(idx) { flipped_x_i } else { x_i };
-                            merge_into(&mut buf, &evals, x_i, 1, 0);
-                            if let Cow::Owned(_) = evals {
-                                mem::swap(evals.to_mut(), &mut buf);
-                            } else {
-                                evals = mem::replace(&mut buf, last_buf.take().unwrap()).into();
-                            }
-                        }
-                        *eval = evals[0];
-                        last_buf = Some(evals.into_owned());
-                    }
-                },
-            );
-        } else {
-            let x = &x[..num_x];
-            let flipped_x = x.iter().map(flip).collect_vec();
-            let pattern = rotation_eval_point_pattern::<true>(self.num_vars, distance);
-            let skip_mask = (1 << distance) - 1;
-            parallelize_iter(
-                evals.chunks_mut(chunk_size).zip(pattern.chunks(chunk_size)),
-                |(evals, pattern)| {
-                    let mut buf = Vec::with_capacity(1 << (num_x - 1));
-                    let mut last_buf = Some(Vec::with_capacity(1 << (num_x - 1)));
-                    for (eval, pat) in evals.iter_mut().zip(pattern.iter()) {
-                        let mut evals = Cow::Borrowed(self.evals());
-                        let skip = pat & skip_mask;
-                        let x_0 = if pat.nth_bit(distance) {
-                            &flipped_x[0]
-                        } else {
-                            &x[0]
-                        };
-                        merge_into(&mut buf, &evals, x_0, distance + 1, skip);
-                        evals = mem::replace(&mut buf, last_buf.take().unwrap()).into();
+        let signed_d = rotation.0;
+        let abs_d = rotation.distance();
+        let n_evals = 1 << self.num_vars();    
 
-                        for ((x_i, flipped_x_i), idx) in
-                            x.iter().zip(flipped_x.iter()).zip(distance..).skip(1)
-                        {
-                            let x_i = if pat.nth_bit(idx) { flipped_x_i } else { x_i };
-                            merge_in_place(&mut evals, x_i, 1, 0, &mut buf);
-                        }
-                        *eval = evals[0];
-                        last_buf = Some(evals.into_owned());
-                    }
-                },
-            );
+
+        // 1. 旋转求值列表
+        let mut rotated_evals = self.evals().to_vec();
+        if signed_d > 0 {
+            rotated_evals.rotate_left(abs_d);
+        } else { // signed_d < 0
+            rotated_evals.rotate_right(abs_d);
         }
-        evals
+
+        // 2. 构造旋转后的多项式
+        let poly_rotated = MultilinearPolynomial::new(rotated_evals);
+
+        // 3. 对旋转后的多项式在原始点 point 求值
+        vec![poly_rotated.evaluate(x)]
     }
+
+
+    // pub fn evaluate_for_rotation(&self, x: &[F], rotation: Rotation) -> Vec<F> {
+    //     assert_eq!(x.len(), self.num_vars);
+    //     if rotation == Rotation::cur() {
+    //         return vec![self.evaluate(x)];
+    //     }
+
+    //     let distance = rotation.distance();
+    //     let num_x = self.num_vars - distance;
+    //     let mut evals = vec![F::ZERO; 1 << distance];
+    //     let chunk_size = div_ceil(evals.len(), num_threads());
+    //     if rotation < Rotation::cur() {
+    //         let x = &x[distance..];
+    //         let flipped_x = x.iter().map(flip).collect_vec();
+    //         let pattern = rotation_eval_point_pattern::<false>(self.num_vars, distance);
+    //         let offset_mask = (1 << self.num_vars) - (1 << num_x);
+    //         parallelize_iter(
+    //             evals.chunks_mut(chunk_size).zip(pattern.chunks(chunk_size)),
+    //             |(evals, pattern)| {
+    //                 let mut buf = Vec::with_capacity(1 << (num_x - 1));
+    //                 let mut last_buf = Some(Vec::with_capacity(1 << (num_x - 1)));
+    //                 for (eval, pat) in evals.iter_mut().zip(pattern.iter()) {
+    //                     let offset = pat & offset_mask;
+    //                     let mut evals = Cow::Borrowed(&self[offset..offset + (1 << num_x)]);
+    //                     for (idx, (x_i, flipped_x_i)) in x.iter().zip(flipped_x.iter()).enumerate()
+    //                     {
+    //                         let x_i = if pat.nth_bit(idx) { flipped_x_i } else { x_i };
+    //                         merge_into(&mut buf, &evals, x_i, 1, 0);
+    //                         if let Cow::Owned(_) = evals {
+    //                             mem::swap(evals.to_mut(), &mut buf);
+    //                         } else {
+    //                             evals = mem::replace(&mut buf, last_buf.take().unwrap()).into();
+    //                         }
+    //                     }
+    //                     *eval = evals[0];
+    //                     last_buf = Some(evals.into_owned());
+    //                 }
+    //             },
+    //         );
+    //     } else {
+    //         let x = &x[..num_x];
+    //         let flipped_x = x.iter().map(flip).collect_vec();
+    //         let pattern = rotation_eval_point_pattern::<true>(self.num_vars, distance);
+    //         let skip_mask = (1 << distance) - 1;
+    //         parallelize_iter(
+    //             evals.chunks_mut(chunk_size).zip(pattern.chunks(chunk_size)),
+    //             |(evals, pattern)| {
+    //                 let mut buf = Vec::with_capacity(1 << (num_x - 1));
+    //                 let mut last_buf = Some(Vec::with_capacity(1 << (num_x - 1)));
+    //                 for (eval, pat) in evals.iter_mut().zip(pattern.iter()) {
+    //                     let mut evals = Cow::Borrowed(self.evals());
+    //                     let skip = pat & skip_mask;
+    //                     let x_0 = if pat.nth_bit(distance) {
+    //                         &flipped_x[0]
+    //                     } else {
+    //                         &x[0]
+    //                     };
+    //                     merge_into(&mut buf, &evals, x_0, distance + 1, skip);
+    //                     evals = mem::replace(&mut buf, last_buf.take().unwrap()).into();
+
+    //                     for ((x_i, flipped_x_i), idx) in
+    //                         x.iter().zip(flipped_x.iter()).zip(distance..).skip(1)
+    //                     {
+    //                         let x_i = if pat.nth_bit(idx) { flipped_x_i } else { x_i };
+    //                         merge_in_place(&mut evals, x_i, 1, 0, &mut buf);
+    //                     }
+    //                     *eval = evals[0];
+    //                     last_buf = Some(evals.into_owned());
+    //                 }
+    //             },
+    //         );
+    //     }
+    //     evals
+    // }
 }
 
 impl<F: Field, P: Borrow<MultilinearPolynomial<F>>> Add<P> for &MultilinearPolynomial<F> {
@@ -463,48 +490,48 @@ pub(crate) fn evaluate<F: Field>(evals: &[F], x: &[F]) -> F {
 }
 
 pub fn rotation_eval<F: Field>(x: &[F], rotation: Rotation, evals_for_rotation: &[F]) -> F {
-    if rotation == Rotation::cur() {
-        assert!(evals_for_rotation.len() == 1);
+    // if rotation == Rotation::cur() {
+        // assert!(evals_for_rotation.len() == 1);
         return evals_for_rotation[0];
-    }
+    // }
 
-    let num_vars = x.len();
-    let distance = rotation.distance();
-    assert!(evals_for_rotation.len() == 1 << distance);
-    assert!(distance <= num_vars);
+    // let num_vars = x.len();
+    // let distance = rotation.distance();
+    // assert!(evals_for_rotation.len() == 1 << distance);
+    // assert!(distance <= num_vars);
 
-    let (pattern, nths, x) = if rotation < Rotation::cur() {
-        (
-            rotation_eval_coeff_pattern::<false>(num_vars, distance),
-            (1..=distance).rev().collect_vec(),
-            x[0..distance].iter().rev().collect_vec(),
-        )
-    } else {
-        (
-            rotation_eval_coeff_pattern::<true>(num_vars, distance),
-            (num_vars - 1..).take(distance).collect(),
-            x[num_vars - distance..].iter().collect(),
-        )
-    };
-    x.into_iter().zip(nths).enumerate().fold(
-        Cow::Borrowed(evals_for_rotation),
-        |evals, (idx, (x_i, nth))| {
-            pattern
-                .iter()
-                .step_by(1 << idx)
-                .map(|pat| pat.nth_bit(nth))
-                .zip(zip_self!(evals.iter()))
-                .map(|(bit, (eval_0, eval_1))| {
-                    if bit {
-                        (*eval_0 - eval_1) * x_i + eval_1
-                    } else {
-                        (*eval_1 - eval_0) * x_i + eval_0
-                    }
-                })
-                .collect_vec()
-                .into()
-        },
-    )[0]
+    // let (pattern, nths, x) = if rotation < Rotation::cur() {
+    //     (
+    //         rotation_eval_coeff_pattern::<false>(num_vars, distance),
+    //         (1..=distance).rev().collect_vec(),
+    //         x[0..distance].iter().rev().collect_vec(),
+    //     )
+    // } else {
+    //     (
+    //         rotation_eval_coeff_pattern::<true>(num_vars, distance),
+    //         (num_vars - 1..).take(distance).collect(),
+    //         x[num_vars - distance..].iter().collect(),
+    //     )
+    // };
+    // x.into_iter().zip(nths).enumerate().fold(
+    //     Cow::Borrowed(evals_for_rotation),
+    //     |evals, (idx, (x_i, nth))| {
+    //         pattern
+    //             .iter()
+    //             .step_by(1 << idx)
+    //             .map(|pat| pat.nth_bit(nth))
+    //             .zip(zip_self!(evals.iter()))
+    //             .map(|(bit, (eval_0, eval_1))| {
+    //                 if bit {
+    //                     (*eval_0 - eval_1) * x_i + eval_1
+    //                 } else {
+    //                     (*eval_1 - eval_0) * x_i + eval_0
+    //                 }
+    //             })
+    //             .collect_vec()
+    //             .into()
+    //     },
+    // )[0]
 }
 
 pub fn rotation_eval_points<F: Field>(x: &[F], rotation: Rotation) -> Vec<Vec<F>> {

@@ -1,16 +1,15 @@
 use crate::{
     backend::hyperplonk::verifier::{pcs_query, point_offset, points},
-    pcs::Evaluation,
+    pcs::{Evaluation, Evaluation_for_shift},
     piop::sum_check::{
-        classic::{ClassicSumCheck, EvaluationsProver},
-        SumCheck, VirtualPolynomial,
+        classic::{ClassicSumCheck, EvaluationsProver}, SumCheck, VirtualPolynomial
     },
-    poly::multilinear::MultilinearPolynomial,
+    poly::multilinear::{rotation_eval, MultilinearPolynomial},
     util::{
         arithmetic::{div_ceil, steps_by, sum, BatchInvert, PrimeField},
         chain, end_timer,
         expression::{
-            rotate::{BinaryField, Rotatable},
+            rotate::{BinaryField, Lexical, Rotatable},
             CommonPolynomial, Expression, Rotation,
         },
         parallel::{num_threads, par_map_collect, parallelize, parallelize_iter},
@@ -393,4 +392,75 @@ pub(crate) fn prove_sum_check<F: PrimeField>(
     transcript.write_field_elements(evals.iter().map(Evaluation::value))?;
 
     Ok((points(&pcs_query, &x), evals))
+}
+
+
+
+#[allow(clippy::type_complexity)]
+pub(super) fn prove_zero_check_with_shift<F: PrimeField>(
+    num_instance_poly: usize,
+    expression: &Expression<F>,
+    polys: &[&MultilinearPolynomial<F>],
+    challenges: Vec<F>,
+    y: Vec<F>,
+    transcript: &mut impl FieldTranscriptWrite<F>,
+) -> Result<(Vec<Vec<F>>, Vec<Evaluation_for_shift<F>>), Error> {
+    prove_sum_check_with_shift(
+        num_instance_poly,
+        expression,
+        F::ZERO,
+        polys,
+        challenges,
+        y,
+        transcript,
+    )
+}
+
+
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn prove_sum_check_with_shift<F: PrimeField>(
+    num_instance_poly: usize,
+    expression: &Expression<F>,
+    sum: F,
+    polys: &[&MultilinearPolynomial<F>],
+    challenges: Vec<F>,
+    y: Vec<F>,
+    transcript: &mut impl FieldTranscriptWrite<F>,
+) -> Result<(Vec<Vec<F>>, Vec<Evaluation_for_shift<F>>), Error> {
+
+    let num_vars = polys[0].num_vars();
+    let ys = [y];
+    let virtual_poly = VirtualPolynomial::new(expression, polys.to_vec(), &challenges, &ys);
+    let (test, x, evals) = ClassicSumCheck::<EvaluationsProver<_>, Lexical>::prove(
+        &(),
+        num_vars,
+        virtual_poly,
+        sum,
+        transcript,
+    )?;
+
+    // println!("x: {:?}", x);
+    // println!("polys_evaluate_for_rotation: {:?}", rotation_eval(&x, Rotation::cur(), &polys[0].evaluate_for_rotation(&x, Rotation::cur())));
+    // println!("polys_evaluate_for_rotation: {:?}", rotation_eval(&x, Rotation::cur(), &polys[18].evaluate_for_rotation(&x, Rotation(0))));
+    // println!("polys_evaluate_for_rotation: {:?}", rotation_eval(&x, Rotation::next(), &polys[18].evaluate_for_rotation(&x, Rotation(1))));
+    // 要动的只有这里，换成zeormorph的shift
+    // instance verifier可以自己计算
+
+    // 将evals转换成 Vec<Evaluation<<_ as Index<&crate::util::expression::Query>>::Output>>
+    // 只需要一个当前点，但是需要知道对应的rotation
+    // 由于底层sumcheck要用到，所以transcript中的东西不能改，最终读出来的eval他的值，但是bound的方式改一下 4.28 14:30
+    // 现在底层的求值方式也要换掉，值对应不上去 4.29 16:54
+    let pcs_query = pcs_query(expression, num_instance_poly);
+
+    let timer = start_timer(|| format!("evals-{}", pcs_query.len()));
+
+    let evals = pcs_query.iter()
+        .map(|query| Evaluation_for_shift::new(query.poly(), query.rotation(), evals[query])).collect_vec();
+    end_timer(timer);
+    
+
+    transcript.write_field_elements(evals.iter().map(Evaluation_for_shift::value))?;
+    
+    Ok((vec![x], evals))
 }

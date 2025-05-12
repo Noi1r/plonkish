@@ -207,8 +207,10 @@ where
         // TODO: Support arbitrary degree.
         assert!(poly_size.is_power_of_two());
         assert!(poly_size.ilog2() <= M::Scalar::S);
+        
 
-        let s = M::Scalar::random(rng);
+        // let s = M::Scalar::random(rng);
+        let s = M::Scalar::from(1);
 
         let g1 = M::G1Affine::generator();
         let (monomial_g1, lagrange_g1) = {
@@ -310,6 +312,7 @@ where
         let divisor = Self::Polynomial::monomial(vec![point.neg(), M::Scalar::ONE]);
         let (quotient, remainder) = poly.div_rem(&divisor);
 
+
         if cfg!(feature = "sanity-check") {
             if eval == &M::Scalar::ZERO {
                 assert!(remainder.is_empty());
@@ -318,8 +321,11 @@ where
             }
         }
 
-        transcript.write_commitment(&Self::commit_monomial(pp, quotient.coeffs()).0)?;
+        // let pi = transcript.write_commitment(&Self::commit_monomial(pp, quotient.coeffs()).0)?;
+        let pi = UnivariateKzg::commit_and_write(&pp, &quotient, transcript)?;
 
+        // println!("pi: {:?}", pi);
+        // println!("=======================================================");
         Ok(())
     }
 

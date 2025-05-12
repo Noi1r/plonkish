@@ -25,7 +25,9 @@ use crate::{
     },
     Error,
 };
+use prover::prove_zero_check_with_shift;
 use rand::RngCore;
+use verifier::verify_zero_check_with_shift;
 use std::{fmt::Debug, hash::Hash, iter, marker::PhantomData};
 
 pub(crate) mod preprocessor;
@@ -161,7 +163,6 @@ where
             lookup_compressed_polys::<_, BinaryField>(&pp.lookups, &polys, &challenges, &betas)
         };
         end_timer(timer);
-
         let timer = start_timer(|| format!("lookup_m_polys-{}", pp.lookups.len()));
         let lookup_m_polys = lookup_m_polys(&lookup_compressed_polys)?;
         end_timer(timer);
@@ -286,7 +287,6 @@ where
             &y,
             transcript,
         )?;
-
         // PCS verify
 
         let dummy_comm = Pcs::Commitment::default();
@@ -303,12 +303,208 @@ where
 
         Ok(())
     }
-}
 
-impl<Pcs> WitnessEncoding for HyperPlonk<Pcs> {
-    fn row_mapping(k: usize) -> Vec<usize> {
-        BinaryField::new(k).usable_indices()
+    fn prove_with_shift(
+        pp: &Self::ProverParam,
+        circuit: &impl PlonkishCircuit<F>,
+        transcript: &mut impl TranscriptWrite<Pcs::CommitmentChunk, F>,
+        _: impl RngCore,
+    ) -> Result<(), Error> {
+        let instance_polys = {
+            let instances = circuit.instances();
+            for (num_instances, instances) in pp.num_instances.iter().zip_eq(instances) {
+                assert_eq!(instances.len(), *num_instances);
+                for instance in instances.iter() {
+                    transcript.common_field_element(instance)?;
+                }
+            }
+            instance_polys::<_, BinaryField>(pp.num_vars, instances)
+        };
+
+        // Round 0..n
+
+        let mut witness_polys = Vec::with_capacity(pp.num_witness_polys.iter().sum());
+        let mut witness_comms = Vec::with_capacity(witness_polys.len());
+        let mut challenges = Vec::with_capacity(pp.num_challenges.iter().sum::<usize>() + 4);
+        for (round, (num_witness_polys, num_challenges)) in pp
+            .num_witness_polys
+            .iter()
+            .zip_eq(pp.num_challenges.iter())
+            .enumerate()
+        {
+            let timer = start_timer(|| format!("witness_collector-{round}"));
+            let polys = circuit
+                .synthesize(round, &challenges)?
+                .into_iter()
+                .map(MultilinearPolynomial::new)
+                .collect_vec();
+            assert_eq!(polys.len(), *num_witness_polys);
+            end_timer(timer);
+
+            witness_comms.extend(Pcs::batch_commit_and_write(&pp.pcs, &polys, transcript)?);
+            witness_polys.extend(polys);
+            challenges.extend(transcript.squeeze_challenges(*num_challenges));
+        }
+        let polys = chain![&instance_polys, &pp.preprocess_polys, &witness_polys].collect_vec();
+
+        // Round n
+
+        let beta = transcript.squeeze_challenge();
+
+        let timer = start_timer(|| format!("lookup_compressed_polys-{}", pp.lookups.len()));
+        let lookup_compressed_polys = {
+            let max_lookup_width = pp.lookups.iter().map(Vec::len).max().unwrap_or_default();
+            let betas = powers(beta).take(max_lookup_width).collect_vec();
+            lookup_compressed_polys::<_, BinaryField>(&pp.lookups, &polys, &challenges, &betas)
+        };
+        end_timer(timer);
+        let timer = start_timer(|| format!("lookup_m_polys-{}", pp.lookups.len()));
+        let lookup_m_polys = lookup_m_polys(&lookup_compressed_polys)?;
+        end_timer(timer);
+
+        let lookup_m_comms = Pcs::batch_commit_and_write(&pp.pcs, &lookup_m_polys, transcript)?;
+
+        // Round n+1
+
+        let gamma = transcript.squeeze_challenge();
+
+        let timer = start_timer(|| format!("lookup_h_polys-{}", pp.lookups.len()));
+        let lookup_h_polys = lookup_h_polys(&lookup_compressed_polys, &lookup_m_polys, &gamma);
+        end_timer(timer);
+
+        let timer = start_timer(|| format!("permutation_z_polys-{}", pp.permutation_polys.len()));
+        let permutation_z_polys = permutation_z_polys::<_, BinaryField>(
+            pp.num_permutation_z_polys,
+            &pp.permutation_polys,
+            &polys,
+            &beta,
+            &gamma,
+        );
+        end_timer(timer);
+
+        let lookup_h_permutation_z_polys =
+            chain![lookup_h_polys.iter(), permutation_z_polys.iter()].collect_vec();
+        let lookup_h_permutation_z_comms =
+            Pcs::batch_commit_and_write(&pp.pcs, lookup_h_permutation_z_polys.clone(), transcript)?;
+
+        // Round n+2
+
+        let alpha = transcript.squeeze_challenge();
+        let y = transcript.squeeze_challenges(pp.num_vars);
+
+        let polys = chain![
+            polys,
+            pp.permutation_polys.iter().map(|(_, poly)| poly),
+            lookup_m_polys.iter(),
+            lookup_h_permutation_z_polys,
+        ]
+        .collect_vec();
+        challenges.extend([beta, gamma, alpha]);
+        let (points, evals) = prove_zero_check_with_shift(
+            pp.num_instances.len(),
+            &pp.expression,
+            &polys,
+            challenges,
+            y,
+            transcript,
+        )?;
+
+        // PCS open
+
+        let dummy_comm = Pcs::Commitment::default();
+        let comms = chain![
+            iter::repeat(&dummy_comm).take(pp.num_instances.len()),
+            &pp.preprocess_comms,
+            &witness_comms,
+            &pp.permutation_comms,
+            &lookup_m_comms,
+            &lookup_h_permutation_z_comms,
+        ]
+        .collect_vec();
+        let timer = start_timer(|| format!("pcs_batch_open-{}", evals.len()));
+        Pcs::batch_open_for_shift(&pp.pcs, polys, comms, &points, &evals, transcript)?;
+        end_timer(timer);
+
+        // println!("prove_with_shift done");
+        Ok(())
     }
+
+    fn verify_with_shift(
+        vp: &Self::VerifierParam,
+        instances: &[Vec<F>],
+        transcript: &mut impl TranscriptRead<Pcs::CommitmentChunk, F>,
+        _: impl RngCore,
+    ) -> Result<(), Error> {
+        for (num_instances, instances) in vp.num_instances.iter().zip_eq(instances) {
+            assert_eq!(instances.len(), *num_instances);
+            for instance in instances.iter() {
+                transcript.common_field_element(instance)?;
+            }
+        }
+
+        // Round 0..n
+
+        let mut witness_comms = Vec::with_capacity(vp.num_witness_polys.iter().sum());
+        let mut challenges = Vec::with_capacity(vp.num_challenges.iter().sum::<usize>() + 4);
+        for (num_polys, num_challenges) in
+            vp.num_witness_polys.iter().zip_eq(vp.num_challenges.iter())
+        {
+            witness_comms.extend(Pcs::read_commitments(&vp.pcs, *num_polys, transcript)?);
+            challenges.extend(transcript.squeeze_challenges(*num_challenges));
+        }
+
+        // Round n
+
+        let beta = transcript.squeeze_challenge();
+
+        let lookup_m_comms = Pcs::read_commitments(&vp.pcs, vp.num_lookups, transcript)?;
+
+        // Round n+1
+
+        let gamma = transcript.squeeze_challenge();
+
+        let lookup_h_permutation_z_comms = Pcs::read_commitments(
+            &vp.pcs,
+            vp.num_lookups + vp.num_permutation_z_polys,
+            transcript,
+        )?;
+
+        // Round n+2
+
+        let alpha = transcript.squeeze_challenge();
+        let y = transcript.squeeze_challenges(vp.num_vars);
+
+        challenges.extend([beta, gamma, alpha]);
+        let (points, evals) = verify_zero_check_with_shift(
+            vp.num_vars,
+            &vp.expression,
+            instances,
+            &challenges,
+            &y,
+            transcript,
+        )?;
+        // PCS verify
+
+        let dummy_comm = Pcs::Commitment::default();
+        let comms = chain![
+            iter::repeat(&dummy_comm).take(vp.num_instances.len()),
+            &vp.preprocess_comms,
+            &witness_comms,
+            vp.permutation_comms.iter().map(|(_, comm)| comm),
+            &lookup_m_comms,
+            &lookup_h_permutation_z_comms,
+        ]
+        .collect_vec();
+        Pcs::batch_verify_for_shift(&vp.pcs, comms, &points, &evals, transcript)?;
+
+        Ok(())
+    }
+
+    }
+    impl<Pcs> WitnessEncoding for HyperPlonk<Pcs> {
+        fn row_mapping(k: usize) -> Vec<usize> {
+            BinaryField::new(k).usable_indices()
+        }
 }
 
 #[cfg(test)]
@@ -366,5 +562,5 @@ mod test {
     tests!(ipa, MultilinearIpa<grumpkin::G1Affine>);
     tests!(kzg, MultilinearKzg<Bn256>);
     tests!(gemini_kzg, Gemini<UnivariateKzg<Bn256>>);
-    tests!(zeromorph_kzg, Zeromorph<UnivariateKzg<Bn256>>);
+    tests!(zeromorph_kzg, Zeromorph<UnivariateKzg<Bn256>>, 5..6);
 }

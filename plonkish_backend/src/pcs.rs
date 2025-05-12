@@ -2,6 +2,7 @@ use crate::{
     poly::Polynomial,
     util::{
         arithmetic::Field,
+        expression::Rotation,
         transcript::{TranscriptRead, TranscriptWrite},
         DeserializeOwned, Serialize,
     },
@@ -83,6 +84,34 @@ pub trait PolynomialCommitmentScheme<F: Field>: Clone + Debug {
         transcript: &mut impl TranscriptWrite<Self::CommitmentChunk, F>,
     ) -> Result<(), Error>;
 
+    fn prove_shifted_evaluation(
+        pp: &Self::ProverParam,                       // ZeromorphKzgProverParam<M>
+        poly: &Self::Polynomial, // MultilinearPolynomial<M::Scalar> (merged and scaled)
+        comm: &Self::Commitment, // Commitment<M::Scalar, UnivariateKzg<M>> (to the original merged poly)
+        point: &Point<F, Self::Polynomial>,// Vec<M::Scalar> (the point 'u')
+        value: &F,       // Claimed value v = f_shifted(u)
+        rotation: &crate::util::expression::Rotation, // Use the provided Rotation struct
+        transcript: &mut impl TranscriptWrite<Self::CommitmentChunk, F>,
+    ) -> Result<(), Error> {
+        Err(Error::NotImplemented(
+            "prove_shifted_evaluation not implemented".to_string(),
+        ))
+    }
+
+    fn verify_shifted_evaluation(
+        vp: &Self::VerifierParam,                       // ZeromorphKzgVerifierParam<M>
+        comm: &Self::Commitment, // 对原始合并多项式 f 的承诺 C_f
+        point: &Point<F, Self::Polynomial>,// Vec<M::Scalar> (the point 'u')
+        value: &F,       // Claimed value v = f_shifted(u)
+        rotation: &crate::util::expression::Rotation, //
+        transcript: &mut impl TranscriptRead<Self::CommitmentChunk, F>,
+    ) -> Result<(), Error>
+    {
+        Err(Error::NotImplemented(
+            "verify_shifted_evaluation not implemented".to_string(),
+        ))
+    }
+
     fn batch_open<'a>(
         pp: &Self::ProverParam,
         polys: impl IntoIterator<Item = &'a Self::Polynomial>,
@@ -94,6 +123,23 @@ pub trait PolynomialCommitmentScheme<F: Field>: Clone + Debug {
     where
         Self::Polynomial: 'a,
         Self::Commitment: 'a;
+
+    fn batch_open_for_shift<'a>(
+        pp: &Self::ProverParam,
+        polys: impl IntoIterator<Item = &'a Self::Polynomial>,
+        comms: impl IntoIterator<Item = &'a Self::Commitment>,
+        points: &[Point<F, Self::Polynomial>],
+        evals: &[Evaluation_for_shift<F>],
+        transcript: &mut impl TranscriptWrite<Self::CommitmentChunk, F>,
+    ) -> Result<(), Error>
+    where
+        Self::Polynomial: 'a,
+        Self::Commitment: 'a,
+    {
+        Err(Error::NotImplemented(
+            "batch_open_for_shift not implemented".to_string(),
+        ))
+    }
 
     fn read_commitment(
         vp: &Self::VerifierParam,
@@ -127,8 +173,24 @@ pub trait PolynomialCommitmentScheme<F: Field>: Clone + Debug {
     ) -> Result<(), Error>
     where
         Self::Commitment: 'a;
+
+    fn batch_verify_for_shift<'a>(
+        vp: &Self::VerifierParam,
+        comms: impl IntoIterator<Item = &'a Self::Commitment>,
+        points: &[Point<F, Self::Polynomial>],
+        evals: &[Evaluation_for_shift<F>],
+        transcript: &mut impl TranscriptRead<Self::CommitmentChunk, F>,
+    ) -> Result<(), Error>
+    where
+        Self::Commitment: 'a,
+    {
+        Err(Error::NotImplemented(
+            "batch_verify_for_shift not implemented".to_string(),
+        ))
+    }
 }
 
+///在batch_open的时候，需要同时open多个多项式，所以需要一个结构体来存储多项式和点的索引
 #[derive(Clone, Debug)]
 pub struct Evaluation<F> {
     poly: usize,
@@ -161,6 +223,35 @@ pub trait Additive<F: Field>: Clone + Debug + Default + PartialEq + Eq {
     ) -> Self
     where
         Self: 'b;
+}
+
+#[derive(Clone, Debug)]
+pub struct Evaluation_for_shift<F> {
+    poly: usize,
+    rotation: Rotation,
+    value: F,
+}
+
+impl<F> Evaluation_for_shift<F> {
+    pub fn new(poly: usize, rotation: Rotation, value: F) -> Self {
+        Self {
+            poly,
+            rotation,
+            value,
+        }
+    }
+
+    pub fn poly(&self) -> usize {
+        self.poly
+    }
+
+    pub fn rotation(&self) -> Rotation {
+        self.rotation
+    }
+
+    pub fn value(&self) -> &F {
+        &self.value
+    }
 }
 
 #[cfg(test)]

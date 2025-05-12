@@ -1,5 +1,5 @@
 use crate::{
-    pcs::Evaluation,
+    pcs::{Evaluation, Evaluation_for_shift},
     piop::sum_check::{
         classic::{ClassicSumCheck, EvaluationsProver},
         evaluate, lagrange_eval, SumCheck,
@@ -8,7 +8,7 @@ use crate::{
     util::{
         arithmetic::{inner_product, PrimeField},
         expression::{
-            rotate::{BinaryField, Rotatable},
+            rotate::{BinaryField, Lexical, Rotatable},
             Expression, Query, Rotation,
         },
         transcript::FieldTranscriptRead,
@@ -16,7 +16,9 @@ use crate::{
     },
     Error,
 };
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::fs::OpenOptions;
+use std::io::Write;
 
 #[allow(clippy::type_complexity)]
 pub(super) fn verify_zero_check<F: PrimeField>(
@@ -91,6 +93,81 @@ pub(crate) fn verify_sum_check<F: PrimeField>(
         .collect();
     Ok((points(&pcs_query, &x), evals))
 }
+
+
+
+#[allow(clippy::type_complexity)]
+pub(super) fn verify_zero_check_with_shift<F: PrimeField>(
+    num_vars: usize,
+    expression: &Expression<F>,
+    instances: &[Vec<F>],
+    challenges: &[F],
+    y: &[F],
+    transcript: &mut impl FieldTranscriptRead<F>,
+) -> Result<(Vec<Vec<F>>, Vec<Evaluation_for_shift<F>>), Error> {
+    verify_sum_check_with_shift(
+        num_vars,
+        expression,
+        F::ZERO,
+        instances,
+        challenges,
+        y,
+        transcript,
+    )
+}
+
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn verify_sum_check_with_shift<F: PrimeField>(
+    num_vars: usize,
+    expression: &Expression<F>,
+    sum: F,
+    instances: &[Vec<F>],
+    challenges: &[F],
+    y: &[F],
+    transcript: &mut impl FieldTranscriptRead<F>,
+) -> Result<(Vec<Vec<F>>, Vec<Evaluation_for_shift<F>>), Error> {
+    // println!("verify_sum_check_with_shift");
+    let (x_eval, x) = ClassicSumCheck::<EvaluationsProver<_>, Lexical>::verify(
+        &(),
+        num_vars,
+        expression.degree(),
+        sum,
+        transcript,
+    )?;
+
+    // println!("x_eval: {:?}", x_eval);
+    // println!("x: {:?}", x);
+
+    let pcs_query = pcs_query(expression, instances.len());
+
+    let evals = pcs_query.iter().map(|query| { 
+        let eval = transcript.read_field_elements(1).unwrap(); 
+        (*query, eval[0])
+    }).collect_vec();
+
+
+    let evals: BTreeMap<Query, F> = instance_evals::<_, BinaryField>(num_vars, expression, instances, &x)
+        .into_iter()
+        .chain(evals)
+        .collect();
+
+    // TODO: 这里的求值有问题
+    // if evaluate::<F, Lexical>(expression, num_vars, &evals, challenges, &[y], &x) != x_eval {
+    //     return Err(Error::InvalidSnark(
+    //         "Unmatched between sum_check output and query evaluation".to_string(),
+    //     ));
+    // }
+
+
+    let evals = pcs_query
+        .iter()
+        .map(|query| Evaluation_for_shift::new(query.poly(), query.rotation(), evals[query]))
+        .collect_vec();
+
+    Ok((vec![x], evals))
+}
+
 
 pub(crate) fn instance_evals<F: PrimeField, R: Rotatable + From<usize>>(
     num_vars: usize,

@@ -43,6 +43,25 @@ pub trait PlonkishBackend<F: Field>: Clone + Debug {
         transcript: &mut impl TranscriptRead<CommitmentChunk<F, Self::Pcs>, F>,
         rng: impl RngCore,
     ) -> Result<(), Error>;
+
+    fn prove_with_shift(
+        pp: &Self::ProverParam,
+        circuit: &impl PlonkishCircuit<F>,
+        transcript: &mut impl TranscriptWrite<CommitmentChunk<F, Self::Pcs>, F>,
+        rng: impl RngCore,
+    ) -> Result<(), Error> {
+        Err(Error::NotImplemented("prove_with_shift not implemented".to_string()))
+    }
+
+    fn verify_with_shift(
+        vp: &Self::VerifierParam,
+        instances: &[Vec<F>],
+        transcript: &mut impl TranscriptRead<CommitmentChunk<F, Self::Pcs>, F>,
+        rng: impl RngCore,
+    ) -> Result<(), Error> {
+        Err(Error::NotImplemented("verify_with_shift not implemented".to_string()))
+    }
+
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -227,7 +246,7 @@ pub(crate) mod test {
             let timer = start_timer(|| format!("prove-{num_vars}"));
             let proof = {
                 let mut transcript = T::new(());
-                Pb::prove(&pp, &circuit, &mut transcript, seeded_std_rng()).unwrap();
+                Pb::prove_with_shift(&pp, &circuit, &mut transcript, seeded_std_rng()).unwrap();
                 transcript.into_proof()
             };
             end_timer(timer);
@@ -235,7 +254,7 @@ pub(crate) mod test {
             let timer = start_timer(|| format!("verify-{num_vars}"));
             let result = {
                 let mut transcript = T::from_proof((), proof.as_slice());
-                Pb::verify(&vp, instances, &mut transcript, seeded_std_rng())
+                Pb::verify_with_shift(&vp, instances, &mut transcript, seeded_std_rng())
             };
             assert_eq!(result, Ok(()));
             end_timer(timer);

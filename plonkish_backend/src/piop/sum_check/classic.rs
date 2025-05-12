@@ -22,7 +22,7 @@ use std::{
 };
 
 mod coeff;
-mod eval;
+pub mod eval;
 
 pub use coeff::CoefficientsProver;
 pub use eval::EvaluationsProver;
@@ -229,16 +229,13 @@ where
         let mut challenges = Vec::with_capacity(num_vars);
         let prover = P::new(&state);
         let aux = P::RoundMessage::auxiliary(state.degree);
-
         for round in 0..num_vars {
             let timer = start_timer(|| format!("sum_check_prove_round-{round}"));
             let msg = prover.prove_round(&state);
             end_timer(timer);
             msg.write(transcript)?;
-
             let challenge = transcript.squeeze_challenge();
             challenges.push(challenge);
-
             let timer = start_timer(|| format!("sum_check_next_round-{round}"));
             state.next_round::<R>(msg.evaluate(&aux, &challenge), &challenge);
             end_timer(timer);
@@ -259,6 +256,7 @@ where
             let mut challenges = Vec::with_capacity(num_vars);
             for _ in 0..num_vars {
                 msgs.push(P::RoundMessage::read(degree, transcript)?);
+
                 challenges.push(transcript.squeeze_challenge());
             }
             (msgs, challenges)

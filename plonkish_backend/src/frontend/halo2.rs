@@ -1,5 +1,6 @@
 use crate::{
     backend::{PlonkishCircuit, PlonkishCircuitInfo, WitnessEncoding},
+    // transform::circuit::ZKWASMCircuit,
     util::{
         arithmetic::{BatchInvert, Field},
         chain,
@@ -7,6 +8,7 @@ use crate::{
         izip, Itertools,
     },
 };
+use halo2_curves::bn256::Fr;
 use halo2_proofs::{
     circuit::Value,
     plonk::{
@@ -19,6 +21,11 @@ use std::{
     collections::{HashMap, HashSet},
     mem,
 };
+// use halo2_proofs::{
+//     arithmetic::MultiMillerLoop,
+//     helpers::get_witness,
+//     plonk::{from_scalar, get_preprocess_polys_and_permutations, Circuit as ZkCircuit},
+// };
 
 #[cfg(any(test, feature = "benchmark"))]
 pub mod circuit;
@@ -658,8 +665,9 @@ fn convert_expression<F: Field>(
 ) -> Expression<F> {
     expression.evaluate(
         &|constant| Expression::Constant(constant),
-        &|selector| {
+        &|selector: Selector| {
             let poly = cs.num_instance_columns() + cs.num_fixed_columns() + selector.index();
+
             Query::new(poly, Rotation::cur()).into()
         },
         &|query| {
@@ -668,6 +676,7 @@ fn convert_expression<F: Field>(
         },
         &|query| {
             let poly = advice_idx[query.column_index()];
+
             Query::new(poly, Rotation(query.rotation().0)).into()
         },
         &|query| Query::new(query.column_index(), Rotation(query.rotation().0)).into(),

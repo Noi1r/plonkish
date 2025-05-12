@@ -93,6 +93,7 @@ pub fn variable_base_msm<'a, 'b, C: CurveAffine>(
     scalars: impl IntoIterator<Item = &'a C::Scalar>,
     bases: impl IntoIterator<Item = &'b C>,
 ) -> C::Curve {
+
     let scalars = scalars.into_iter().collect_vec();
     let bases = bases.into_iter().collect_vec();
     assert_eq!(scalars.len(), bases.len());
@@ -126,7 +127,7 @@ fn variable_base_msm_serial<C: CurveAffine>(
     scalars: &[&C::Scalar],
     bases: &[&C],
     result: &mut C::Curve,
-) {
+) -> C::Curve {
     #[derive(Clone, Copy)]
     enum CurveAcc<C: CurveAffine> {
         Empty,
@@ -157,7 +158,12 @@ fn variable_base_msm_serial<C: CurveAffine>(
             }
         }
     }
-
+    if scalars.is_empty() {
+        assert!(bases.is_empty(), "variable_base_msm_serial: bases must be empty if scalars is empty");
+        let mut result = C::Curve::identity();
+        return result;
+    }
+    
     let scalars = scalars.iter().map(|scalar| scalar.to_repr()).collect_vec();
     let num_bytes = scalars[0].as_ref().len();
     let num_bits = 8 * num_bytes;
@@ -186,6 +192,7 @@ fn variable_base_msm_serial<C: CurveAffine>(
             *result += &running_sum;
         }
     }
+    *result
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
