@@ -28,6 +28,7 @@ use std::{
     iter, mem,
 };
 
+
 pub fn vanilla_plonk_circuit_info<F: PrimeField>(
     num_vars: usize,
     num_instances: usize,
@@ -168,6 +169,68 @@ pub fn rand_vanilla_plonk_circuit<F: PrimeField, R: Rotatable + From<usize>>(
         MockCircuit::new(vec![instances], vec![w_l, w_r, w_o]),
     )
 }
+
+
+// pub fn rand_anemoi_hash_merkle_tree_circuit<F: PrimeField, R: Rotatable + From<usize>>(
+//     depth: usize,
+//     mut preprocess_rng: impl RngCore,
+//     mut witness_rng: impl RngCore,
+// ) -> (PlonkishCircuitInfo<F>, impl PlonkishCircuit<F>) {
+//     if depth == 0 {
+//         panic!("Depth must be at least 1 for this full tree circuit structure.");
+//     }
+
+//     let leaves = 1 << depth;
+//     let num_internal_nodes = leaves - 1;
+//     let total_nodes = leaves + num_internal_nodes; // This is (1 << (depth + 1)) - 1
+
+//     // Circuit size should be a power of two for num_vars in PlonkishCircuitInfo.
+//     // The user's poly size is `total_nodes`. We'll use this many rows.
+//     // `PlonkishCircuitInfo.num_vars` will need `total_nodes.next_power_of_two()`.
+//     let mut circuit_nrows = total_nodes;
+//     let padded_circuit_nrows = total_nodes.next_power_of_two();
+
+
+//     // Polynomials as per user spec (0-19, so 20 of them), sized to padded_circuit_nrows
+//     let mut polys: [Vec<F>; 20] = std::array::from_fn(|_| vec![F::ZERO; padded_circuit_nrows]);
+//     let mut permutation = Permutation::default();
+
+//     // --- Generate Witnesses (Leaf Values) ---
+//     let leaf_values: Vec<F> = (0..leaves).map(|_| F::random(&mut witness_rng)).collect();
+
+//     // 0: q_prk1 
+//     // 1: q_prk2
+//     // 2: q_prk3
+//     // 3: q_prk4
+//     // 4: q_1
+//     // 5: q_2
+//     // 6: q_3
+//     // 7: q_4
+//     // 8: q_m1
+//     // 9: q_m2: 
+//     // 10: q_c: constant
+//     // 11: PI
+//     // 12: q_ecc
+//     // 13: q_o
+//     // 14: q_b
+//     // 15: w_1
+//     // 16: w_2
+//     // 17: w_3
+//     // 18: w_4
+//     // 19: w_5
+ 
+
+
+
+
+//     let mut permutation = Permutation::default();
+
+
+
+
+// }
+
+
 
 pub fn rand_vanilla_plonk_assignment<F: PrimeField, R: Rotatable + From<usize>>(
     num_vars: usize,

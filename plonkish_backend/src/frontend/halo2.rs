@@ -8,7 +8,7 @@ use crate::{
         izip, Itertools,
     },
 };
-use halo2_curves::bn256::Fr;
+// use halo2_curves::bn256::Fr;
 use halo2_proofs::{
     circuit::Value,
     plonk::{

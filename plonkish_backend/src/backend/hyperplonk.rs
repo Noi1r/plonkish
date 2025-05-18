@@ -531,7 +531,7 @@ mod test {
     };
     use halo2_curves::{
         bn256::{self, Bn256},
-        grumpkin,
+        grumpkin
     };
 
     macro_rules! tests {
