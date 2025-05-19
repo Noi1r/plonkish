@@ -512,7 +512,7 @@ mod test {
     use crate::{
         backend::{
             hyperplonk::{
-                util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit},
+                util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit, anemoi_permutation_round},
                 HyperPlonk,
             },
             test::run_plonkish_backend,
@@ -548,6 +548,13 @@ mod test {
                 fn [<vanilla_plonk_w_lookup_w_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
                         rand_vanilla_plonk_w_lookup_circuit::<_, BinaryField>(num_vars, seeded_std_rng(), seeded_std_rng())
+                    });
+                }
+
+                #[test]
+                fn [<anemoi_hash_ $suffix>]() {
+                    run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
+                        anemoi_permutation_round::<BinaryField>(num_vars, seeded_std_rng(), seeded_std_rng())
                     });
                 }
             }

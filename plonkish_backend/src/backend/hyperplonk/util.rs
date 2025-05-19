@@ -18,7 +18,11 @@ use crate::{
         test::{rand_array, rand_idx, rand_vec},
         Itertools,
     },
+    anemoi_hash::{AnemoiJive256, AnemoiJive, ApplicableMDSMatrix, MDSMatrix},
 };
+
+use halo2_curves::bn256::Fr;
+use halo2_curves::ff::Field;
 use num_integer::Integer;
 use rand::RngCore;
 use std::{
@@ -28,6 +32,170 @@ use std::{
     iter, mem,
 };
 
+pub fn rand_anemoi_hash_test(){
+    let trace = AnemoiJive256::eval_jive_with_trace(&[Fr::from(1u64), Fr::from(2u64)], &[Fr::from(3u64),Fr::ZERO]);
+    println!("trace: {:?}", trace);
+}
+
+
+
+pub fn anemoi_permutation_round<R: Rotatable + From<usize>>(
+    num_vars: usize,
+    mut preprocess_rng: impl RngCore,
+    mut witness_rng: impl RngCore,
+)-> (PlonkishCircuitInfo<Fr>, impl PlonkishCircuit<Fr>) 
+{
+    let va = Fr::from(1u64);
+    let vb = Fr::from(2u64);
+    let vc = Fr::from(3u64);
+    let salt = Fr::from(0u64);
+    let instances = rand_vec::<Fr>(19, &mut witness_rng);
+    let trace = AnemoiJive256::eval_jive_with_trace(&[va, vb], &[vc, salt]);
+
+    let size = 32;
+    let mut polys = [(); 20].map(|_| vec![Fr::ZERO; size]);
+    let mut permutation = Permutation::default();
+
+    for r in 0..14 {
+        polys[0][r] = AnemoiJive256::PREPROCESSED_ROUND_KEYS_X[r][0];
+        polys[1][r] = AnemoiJive256::PREPROCESSED_ROUND_KEYS_X[r][1];
+        polys[2][r] = AnemoiJive256::PREPROCESSED_ROUND_KEYS_Y[r][0];
+        polys[3][r] = AnemoiJive256::PREPROCESSED_ROUND_KEYS_Y[r][1];
+        
+    }
+    // 1st round
+    polys[15][0] = va;
+    polys[16][0] = vb;
+    polys[17][0] = vc;
+    polys[18][0] = salt;
+    polys[19][0] = trace.intermediate_y_before_constant_additions[0][1];
+    permutation.copy((19, 0), (18, 1));
+
+    for r in 1..14 {
+        polys[15][r] = trace.intermediate_x_before_constant_additions[r-1][0];
+        polys[16][r] = trace.intermediate_x_before_constant_additions[r-1][1];
+        polys[17][r] = trace.intermediate_y_before_constant_additions[r-1][0];
+        polys[18][r] = trace.intermediate_y_before_constant_additions[r-1][1];
+        polys[19][r] = trace.intermediate_y_before_constant_additions[r][1];
+        permutation.copy((19, r), (18, r+1));
+    }
+
+    // output 0
+    // MDS_MATRIX=[[1, g], [g, g^2+1]]
+    polys[4][15] = AnemoiJive256::MDS_MATRIX[0][0].double();
+    polys[5][15] = AnemoiJive256::MDS_MATRIX[0][1].double();
+    polys[6][15] = AnemoiJive256::MDS_MATRIX[0][1];
+    polys[7][15] = AnemoiJive256::MDS_MATRIX[0][0];
+
+    polys[13][15] = Fr::ONE;
+    polys[15][15] = trace.intermediate_x_before_constant_additions[13][0];
+    polys[16][15] = trace.intermediate_x_before_constant_additions[13][1];
+    polys[17][15] = trace.intermediate_y_before_constant_additions[13][0];
+    polys[18][15] = trace.intermediate_y_before_constant_additions[13][1];
+    polys[19][15] = trace.final_x[0];
+
+    
+    // output 1
+    polys[4][16] = AnemoiJive256::MDS_MATRIX[1][0].double();
+    polys[5][16] = AnemoiJive256::MDS_MATRIX[1][1].double();
+    polys[6][16] = AnemoiJive256::MDS_MATRIX[1][1];
+    polys[7][16] = AnemoiJive256::MDS_MATRIX[1][0];
+
+    polys[13][16] = Fr::ONE;
+    polys[15][16] = trace.intermediate_x_before_constant_additions[13][0];
+    polys[16][16] = trace.intermediate_x_before_constant_additions[13][1];
+    polys[17][16] = trace.intermediate_y_before_constant_additions[13][0];
+    polys[18][16] = trace.intermediate_y_before_constant_additions[13][1];
+    polys[19][16] = trace.final_x[1];
+
+    // output 2
+    polys[4][17] = AnemoiJive256::MDS_MATRIX[0][0];
+    polys[5][17] = AnemoiJive256::MDS_MATRIX[0][1];
+    polys[6][17] = AnemoiJive256::MDS_MATRIX[0][1];
+    polys[7][17] = AnemoiJive256::MDS_MATRIX[0][0];
+
+    polys[13][17] = Fr::ONE;
+    polys[15][17] = trace.intermediate_x_before_constant_additions[13][0];
+    polys[16][17] = trace.intermediate_x_before_constant_additions[13][1];
+    polys[17][17] = trace.intermediate_y_before_constant_additions[13][0];
+    polys[18][17] = trace.intermediate_y_before_constant_additions[13][1];
+    polys[19][17] = trace.final_y[0];
+
+    // output 3
+    polys[4][18] = AnemoiJive256::MDS_MATRIX[1][0];
+    polys[5][18] = AnemoiJive256::MDS_MATRIX[1][1];
+    polys[6][18] = AnemoiJive256::MDS_MATRIX[1][1];
+    polys[7][18] = AnemoiJive256::MDS_MATRIX[1][0];
+
+    polys[13][18] = Fr::ONE;
+    polys[15][18] = trace.intermediate_x_before_constant_additions[13][0];
+    polys[16][18] = trace.intermediate_x_before_constant_additions[13][1];
+    polys[17][18] = trace.intermediate_y_before_constant_additions[13][0];
+    polys[18][18] = trace.intermediate_y_before_constant_additions[13][1];
+    polys[19][18] = trace.final_y[1];
+    
+
+    let [q_prk1, q_prk2, q_prk3, q_prk4, q_1, q_2, q_3, q_4, q_m12, q_m34, q_c, pi, q_ecc, q_o, q_b, w_1, w_2, w_3, w_4, w_5] = polys;
+    let circuit_info = anemoi_permutation_round_circuit_info::<Fr>(
+        [q_prk1, q_prk2, q_prk3, q_prk4, q_1, q_2, q_3, q_4, q_m12, q_m34, q_c, pi, q_ecc, q_o, q_b],
+        permutation.into_cycles(),
+    );
+
+    (circuit_info, MockCircuit::new(vec![instances], vec![w_1, w_2, w_3, w_4, w_5]))
+
+}
+
+
+    // 0: q_prk1 
+    // 1: q_prk2
+    // 2: q_prk3
+    // 3: q_prk4
+    // 4: q_1
+    // 5: q_2
+    // 6: q_3
+    // 7: q_4
+    // 8: q_m12
+    // 9: q_m34: 
+    // 10: q_c: constant
+    // 11: PI
+    // 12: q_ecc
+    // 13: q_o
+    // 14: q_b
+    // 15: w_1
+    // 16: w_2
+    // 17: w_3
+    // 18: w_4
+    // 19: w_5
+    
+
+pub fn anemoi_permutation_round_circuit_info<F: PrimeField>(
+    preprocess_polys: [Vec<F>; 15],
+    permutations: Vec<Vec<(usize, usize)>>,
+) -> PlonkishCircuitInfo<F> {
+    let [q_prk1, q_prk2, q_prk3, q_prk4, q_1, q_2, q_3, q_4, q_m12, q_m34, q_c, pi, q_ecc, q_o, q_b, w_1, w_2, w_3, w_4, w_5]: &[Expression<F>; 20] =
+        &array::from_fn(|poly| Query::new(poly, Rotation::cur())).map(Expression::Polynomial);
+
+        let w_1_next: &Expression<F> = &Expression::Polynomial(Query::new(15, Rotation::next()));
+        let w_2_next: &Expression<F> = &Expression::Polynomial(Query::new(16, Rotation::next()));
+        let w_3_next: &Expression<F> = &Expression::Polynomial(Query::new(17, Rotation::next()));
+
+    
+    PlonkishCircuitInfo {
+        k: 5,
+        num_instances: vec![19],
+        preprocess_polys: preprocess_polys.to_vec(),
+        num_witness_polys: vec![5],
+        num_challenges: vec![0],
+        constraints: vec![q_1*w_1 + q_2*w_2 + q_3*w_3 + q_4*w_4 + q_m12*w_1*w_3 + q_m34*w_2*w_4 + q_c + pi + q_ecc*w_1*w_2*w_3*w_4*w_5 - q_o * w_5, 
+        q_b * w_2 * (w_2 - Expression::Constant(F::from(1u64))), 
+        q_b * w_3 * (w_3 - Expression::Constant(F::from(1u64))), 
+        q_b * w_4 * (w_4 - Expression::Constant(F::from(1u64))), 
+        q_prk3*((w_1 +w_4 + Expression::Constant(F::from(5u64)) * (w_2 + w_3) + q_prk3 - w_3_next) * (w_1 +w_4 + Expression::Constant(F::from(5u64)) * (w_2 + w_3) + q_prk3 - w_3_next) * (w_1 +w_4 + Expression::Constant(F::from(5u64)) * (w_2 + w_3) + q_prk3 - w_3_next) * (w_1 +w_4 + Expression::Constant(F::from(5u64)) * (w_2 + w_3) + q_prk3 - w_3_next) * (w_1 +w_4 + Expression::Constant(F::from(5u64)) * (w_2 + w_3) + q_prk3 - w_3_next) + Expression::Constant(F::from(5u64)) * (w_1 + w_4 + Expression::Constant(F::from(5u64))* (w_2 + w_3) + q_prk3) * (w_1 + w_4 + Expression::Constant(F::from(5u64))* (w_2 + w_3) + q_prk3) - (Expression::Constant(F::from(2u64)) * w_1 + w_4 + Expression::Constant(F::from(5u64)) * (Expression::Constant(F::from(2u64)) * w_2 + w_3) + q_prk1))],
+        lookups: Vec::new(),
+        permutations,
+        max_degree: Some(4),
+    }
+}
 
 pub fn vanilla_plonk_circuit_info<F: PrimeField>(
     num_vars: usize,
@@ -169,68 +337,6 @@ pub fn rand_vanilla_plonk_circuit<F: PrimeField, R: Rotatable + From<usize>>(
         MockCircuit::new(vec![instances], vec![w_l, w_r, w_o]),
     )
 }
-
-
-// pub fn rand_anemoi_hash_merkle_tree_circuit<F: PrimeField, R: Rotatable + From<usize>>(
-//     depth: usize,
-//     mut preprocess_rng: impl RngCore,
-//     mut witness_rng: impl RngCore,
-// ) -> (PlonkishCircuitInfo<F>, impl PlonkishCircuit<F>) {
-//     if depth == 0 {
-//         panic!("Depth must be at least 1 for this full tree circuit structure.");
-//     }
-
-//     let leaves = 1 << depth;
-//     let num_internal_nodes = leaves - 1;
-//     let total_nodes = leaves + num_internal_nodes; // This is (1 << (depth + 1)) - 1
-
-//     // Circuit size should be a power of two for num_vars in PlonkishCircuitInfo.
-//     // The user's poly size is `total_nodes`. We'll use this many rows.
-//     // `PlonkishCircuitInfo.num_vars` will need `total_nodes.next_power_of_two()`.
-//     let mut circuit_nrows = total_nodes;
-//     let padded_circuit_nrows = total_nodes.next_power_of_two();
-
-
-//     // Polynomials as per user spec (0-19, so 20 of them), sized to padded_circuit_nrows
-//     let mut polys: [Vec<F>; 20] = std::array::from_fn(|_| vec![F::ZERO; padded_circuit_nrows]);
-//     let mut permutation = Permutation::default();
-
-//     // --- Generate Witnesses (Leaf Values) ---
-//     let leaf_values: Vec<F> = (0..leaves).map(|_| F::random(&mut witness_rng)).collect();
-
-//     // 0: q_prk1 
-//     // 1: q_prk2
-//     // 2: q_prk3
-//     // 3: q_prk4
-//     // 4: q_1
-//     // 5: q_2
-//     // 6: q_3
-//     // 7: q_4
-//     // 8: q_m1
-//     // 9: q_m2: 
-//     // 10: q_c: constant
-//     // 11: PI
-//     // 12: q_ecc
-//     // 13: q_o
-//     // 14: q_b
-//     // 15: w_1
-//     // 16: w_2
-//     // 17: w_3
-//     // 18: w_4
-//     // 19: w_5
- 
-
-
-
-
-//     let mut permutation = Permutation::default();
-
-
-
-
-// }
-
-
 
 pub fn rand_vanilla_plonk_assignment<F: PrimeField, R: Rotatable + From<usize>>(
     num_vars: usize,
