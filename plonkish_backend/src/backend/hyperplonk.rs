@@ -30,6 +30,7 @@ use rand::RngCore;
 use verifier::verify_zero_check_with_shift;
 use std::{fmt::Debug, hash::Hash, iter, marker::PhantomData};
 
+// pub(crate) mod anemoi;
 pub(crate) mod preprocessor;
 pub(crate) mod prover;
 pub(crate) mod verifier;
@@ -512,7 +513,7 @@ mod test {
     use crate::{
         backend::{
             hyperplonk::{
-                util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit, anemoi_permutation_round},
+                util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit, rand_anemoi_hash_circuit},
                 HyperPlonk,
             },
             test::run_plonkish_backend,
@@ -554,7 +555,7 @@ mod test {
                 #[test]
                 fn [<anemoi_hash_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        anemoi_permutation_round::<BinaryField>(num_vars, seeded_std_rng(), seeded_std_rng())
+                        rand_anemoi_hash_circuit::<_, BinaryField>(num_vars,1, seeded_std_rng(), seeded_std_rng())
                     });
                 }
             }
@@ -569,5 +570,5 @@ mod test {
     tests!(ipa, MultilinearIpa<grumpkin::G1Affine>);
     tests!(kzg, MultilinearKzg<Bn256>);
     tests!(gemini_kzg, Gemini<UnivariateKzg<Bn256>>);
-    tests!(zeromorph_kzg, Zeromorph<UnivariateKzg<Bn256>>, 5..6);
+    tests!(zeromorph_kzg, Zeromorph<UnivariateKzg<Bn256>>, 4..5);
 }
