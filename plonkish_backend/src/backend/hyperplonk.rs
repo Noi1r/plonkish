@@ -311,6 +311,7 @@ where
         transcript: &mut impl TranscriptWrite<Pcs::CommitmentChunk, F>,
         _: impl RngCore,
     ) -> Result<(), Error> {
+        println!("circuit.instances(): {:?}", circuit.instances());
         let instance_polys = {
             let instances = circuit.instances();
             for (num_instances, instances) in pp.num_instances.iter().zip_eq(instances) {
@@ -555,7 +556,7 @@ mod test {
                 #[test]
                 fn [<anemoi_hash_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        rand_anemoi_hash_circuit::<_, BinaryField>(num_vars,1, seeded_std_rng(), seeded_std_rng())
+                        rand_anemoi_hash_circuit::<_, BinaryField>(seeded_std_rng(), seeded_std_rng())
                     });
                 }
             }
