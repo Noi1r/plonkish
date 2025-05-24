@@ -35,6 +35,67 @@ use std::{
 };
 
 
+
+// 在你的 util.rs 中添加这个函数
+
+/// 简单的索引测试电路：验证 w_next = w_current + 1
+pub fn rand_index_test_circuit<F: PrimeField, R: Rotatable + From<usize>>(
+    num_vars: usize,
+    mut _preprocess_rng: impl RngCore,
+    mut witness_rng: impl RngCore,
+) -> (PlonkishCircuitInfo<F>, impl PlonkishCircuit<F>) {
+    let size = 1 << num_vars;
+    let usable_indices = R::from(num_vars).usable_indices();
+    
+    // 初始化多项式
+    let mut q_seq = vec![F::ZERO; size];  // 选择器
+    let mut w_values = vec![F::ZERO; size];  // witness
+    
+    let mut permutation = Permutation::default();
+    permutation.copy((1, usable_indices[0]), (1, usable_indices[0])); // 自引用
+    
+    // 在usable_indices上设置递增序列
+    for i in 0..std::cmp::min(usable_indices.len().saturating_sub(1), 8) {
+        let current_idx = usable_indices[i];
+        let next_idx = usable_indices[i + 1];
+        
+        // 设置值：0, 1, 2, 3, ...
+        w_values[current_idx] = F::from(i as u64);
+        w_values[next_idx] = F::from((i + 1) as u64);
+        
+        // 激活约束
+        q_seq[current_idx] = F::ONE;
+    }
+    
+    // // normal order
+    // for i in 0..size {
+    //     w_values[i] = F::from(i as u64);
+    //     q_seq[i] = F::ONE;
+    // }
+
+    // 约束：q_seq * (w_next - w_current - 1) = 0
+    let constraint: Expression<F> = Expression::Polynomial::<F>(Query::new(0, Rotation::cur())) *
+        (Expression::Polynomial::<F>(Query::new(1, Rotation::next())) -
+         Expression::Polynomial::<F>(Query::new(1, Rotation::cur())) -
+         Expression::one());
+    
+    let circuit_info = PlonkishCircuitInfo {
+        k: num_vars,
+        num_instances: vec![],
+        preprocess_polys: vec![q_seq],
+        num_witness_polys: vec![1],
+        num_challenges: vec![0],
+        constraints: vec![constraint],
+        lookups: Vec::new(),
+        permutations: permutation.into_cycles(),
+        max_degree: Some(2),
+    };
+    
+    (circuit_info, MockCircuit::new(vec![], vec![w_values]))
+}
+
+
+
 /// Create a PlonkishCircuitInfo for Anemoi hash with TurboPlonk constraints
 /// Based on the paper "An efficient verifiable state for zk-EVM and beyond from the Anemoi hash function"
 pub fn anemoi_hash_circuit_info<F: PrimeField>(
@@ -120,7 +181,7 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
     // Collect all constraints
     let mut constraints = vec![base_constraint];
     constraints.extend(bool_constraints);
-    // constraints.extend(vec![anemoi_1, anemoi_2, anemoi_3, anemoi_4]);
+    constraints.extend(vec![anemoi_1, anemoi_2, anemoi_3, anemoi_4]);
     // constraints.extend(vec![test_constraint]);
     
     
@@ -149,11 +210,21 @@ pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<
     mut witness_rng: impl RngCore,
 ) -> (PlonkishCircuitInfo<F>, impl PlonkishCircuit<F>) {
     const NUM_ROUNDS: usize = 14; // From AnemoiJive256 specification
-    const GATES_NEEDED: usize = NUM_ROUNDS + 3; // Input + rounds + output + padding
+    const GATES_NEEDED: usize = NUM_ROUNDS + 4; // Input + rounds + output + padding
     
     // Calculate minimum num_vars needed
     let num_vars = (GATES_NEEDED as f64).log2().ceil() as usize;
     let size = 1 << num_vars;
+    
+    // 获取可用的索引 - 这是关键！
+    let usable_indices = R::from(num_vars).usable_indices();
+    println!("num_vars: {}, size: {}, usable_indices len: {}", num_vars, size, usable_indices.len());
+    println!("usable_indices: {:?}", &usable_indices[..std::cmp::min(usable_indices.len(), 20)]);
+    
+    // 确保我们有足够的可用索引
+    if usable_indices.len() < GATES_NEEDED {
+        panic!("Not enough usable indices: {} < {}", usable_indices.len(), GATES_NEEDED);
+    }
     
     // Initialize polynomials
     let mut w1_values = vec![F::ZERO; size];
@@ -306,41 +377,48 @@ pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<
 
     // fuck, index 0 can't be used for shift
     // TODO: FIX Rotatable FIELD RR
-    let idx = 0;
-    w1_values[idx] = current_x[0];
-    w2_values[idx] = current_x[1];
-    w3_values[idx] = current_y[0];
-    w4_values[idx] = current_y[1];
-    wo_values[idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1]; // Jive output
+    // 使用 usable_indices 来设置初始状态
+    let init_idx = usable_indices[0];
+    w1_values[init_idx] = current_x[0];
+    w2_values[init_idx] = current_x[1];
+    w3_values[init_idx] = current_y[0];
+    w4_values[init_idx] = current_y[1];
+    wo_values[init_idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1];
     
     // Simple constraint for input gate
-    q1[idx] = F::ONE;
-    q2[idx] = F::ONE;
-    q3[idx] = F::ONE;
-    q4[idx] = F::ONE;
-    qo[idx] = F::ONE;
+    q1[init_idx] = F::ONE;
+    q2[init_idx] = F::ONE;
+    q3[init_idx] = F::ONE;
+    q4[init_idx] = F::ONE;
+    qo[init_idx] = F::ONE;
+
+    // Create self-referencing permutations for witness polynomials
+    for poly_idx in 14..19 {  // w1, w2, w3, w4, wo
+        permutation.copy((poly_idx, init_idx), (poly_idx, init_idx));
+    }
+    
 
 
-
-    // Anemoi rounds - simulate the actual Anemoi permutation following mod.rs
+    // Anemoi rounds - simulate the actual Anemoi permutation
     for round in 0..NUM_ROUNDS {
-        let idx = round + 1;
-        if round == 0 {
-            q4[idx] = F::ONE;
-            qc[idx] = -F::from(423u64);
-        } 
+        let current_gate_idx = usable_indices[round + 1];
+        
+        // 确保下一个索引也存在（用于 Rotation::next()）
+        if round + 2 >= usable_indices.len() {
+            panic!("Not enough usable indices for round {}", round);
+        }
+        
         // Set preprocessed round key selectors (use preprocessed values for qprk)
-        qprk1[idx] = preprocessed_round_keys_x[round][0];
-        qprk2[idx] = preprocessed_round_keys_x[round][1];
-        qprk3[idx] = preprocessed_round_keys_y[round][0];
-        qprk4[idx] = preprocessed_round_keys_y[round][1];
+        qprk1[current_gate_idx] = preprocessed_round_keys_x[round][0];
+        qprk2[current_gate_idx] = preprocessed_round_keys_x[round][1];
+        qprk3[current_gate_idx] = preprocessed_round_keys_y[round][0];
+        qprk4[current_gate_idx] = preprocessed_round_keys_y[round][1];
         
         // Store pre-round values
-        // Only add copy constraint for wo -> w4 connection as you mentioned
-        w1_values[idx] = current_x[0];
-        w2_values[idx] = current_x[1];
-        w3_values[idx] = current_y[0];
-        w4_values[idx] = current_y[1];
+        w1_values[current_gate_idx] = current_x[0];
+        w2_values[current_gate_idx] = current_x[1];
+        w3_values[current_gate_idx] = current_y[0];
+        w4_values[current_gate_idx] = current_y[1];
 
         // Apply one round of Anemoi permutation following mod.rs implementation
         // Step 1: Add round constants
@@ -464,17 +542,15 @@ pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<
         // println!("current_y: {:?}", current_y);   
     }
 
-    w1_values[NUM_ROUNDS+1] = current_x[0];
-    w2_values[NUM_ROUNDS+1] = current_x[1];
-    w3_values[NUM_ROUNDS+1] = current_y[0];
-    w4_values[NUM_ROUNDS+1] = current_y[1];
-    // q1[NUM_ROUNDS+1] = F::from(2u64) * generator;
-    // q2[NUM_ROUNDS+1] = generator * generator + generator + F::ONE;
-    // q3[NUM_ROUNDS+1] = generator * generator + generator + F::ONE;
-    // q4[NUM_ROUNDS+1] = F::from(2u64) * generator;
-    // qo[NUM_ROUNDS+1] = F::ONE;
+    // Set up next round values for the last round to enable Rotation::next() constraints
+    let final_idx = usable_indices[NUM_ROUNDS + 1];
+    w1_values[final_idx] = current_x[0];
+    w2_values[final_idx] = current_x[1];
+    w3_values[final_idx] = current_y[0];
+    w4_values[final_idx] = current_y[1];
 
-    
+    // Final output gate
+    let output_idx = usable_indices[NUM_ROUNDS + 2];
     // Final transformations (post-rounds) following mod.rs
     // Final MDS application
     let temp_x0 = current_x[0] + generator * current_x[1];
@@ -493,42 +569,45 @@ pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<
         current_x[i] += current_y[i];
     }
 
-    w1_values[NUM_ROUNDS+2] = current_x[0];
-    w2_values[NUM_ROUNDS+2] = current_x[1];
-    w3_values[NUM_ROUNDS+2] = current_y[0];
-    w4_values[NUM_ROUNDS+2] = current_y[1];
-    // wo_values[NUM_ROUNDS+1] = current_x[0] + current_x[1] + current_y[0] + current_y[1];
-    wo_values[NUM_ROUNDS+2] = current_x[0] + current_x[1] + current_y[0] + current_y[1];
-    q1[NUM_ROUNDS+2] = F::ONE;
-    q2[NUM_ROUNDS+2] = F::ONE;
-    q3[NUM_ROUNDS+2] = F::ONE;
-    q4[NUM_ROUNDS+2] = F::ONE;
-    qo[NUM_ROUNDS+2] = F::ONE;
+    w1_values[output_idx] = current_x[0];
+    w2_values[output_idx] = current_x[1];
+    w3_values[output_idx] = current_y[0];
+    w4_values[output_idx] = current_y[1];
+    wo_values[output_idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1];
+    
+    // Output constraint
+    q1[output_idx] = F::ONE;
+    q2[output_idx] = F::ONE;
+    q3[output_idx] = F::ONE;
+    q4[output_idx] = F::ONE;
+    qo[output_idx] = F::ONE;
 
 
-    for round in 1..NUM_ROUNDS+1 {
-        // 根据论文Section 5.3的优化：wo -> w4连接
-        wo_values[round] = w4_values[round + 1];
-        permutation.copy((17, round + 1), (18, round)); // wo -> w4 (下一轮)
+    // Set up copy constraints using usable indices
+    for round in 1..=NUM_ROUNDS {
+        let current_idx = usable_indices[round];
+        let next_idx = usable_indices[round + 1];
+        
+        // wo -> w4 connection (Section 5.3 optimization)
+        wo_values[current_idx] = w4_values[next_idx];
+        permutation.copy((18, current_idx), (17, next_idx)); // wo -> w4 (next round)
     }
-    // permutation.copy((17, 2), (18, 1));
 
-
-    println!("permutation: {:?}", permutation.cycles);
-    println!("q1: {:?}", q1);
-    println!("q2: {:?}", q2);
-    println!("q3: {:?}", q3);
-    println!("q4: {:?}", q4);
-    println!("qo: {:?}", qo);
-    println!("qprk1: {:?}", qprk1);
-    println!("qprk2: {:?}", qprk2);
-    println!("qprk3: {:?}", qprk3);
-    println!("qprk4: {:?}", qprk4);
-    println!("w1_values: {:?}", w1_values);
-    println!("w2_values: {:?}", w2_values);
-    println!("w3_values: {:?}", w3_values);
-    println!("w4_values: {:?}", w4_values);
-    println!("wo_values: {:?}", wo_values);
+    // println!("permutation: {:?}", permutation.cycles);
+    // println!("q1: {:?}", q1);
+    // println!("q2: {:?}", q2);
+    // println!("q3: {:?}", q3);
+    // println!("q4: {:?}", q4);
+    // println!("qo: {:?}", qo);
+    // println!("qprk1: {:?}", qprk1);
+    // println!("qprk2: {:?}", qprk2);
+    // println!("qprk3: {:?}", qprk3);
+    // println!("qprk4: {:?}", qprk4);
+    // println!("w1_values: {:?}", w1_values);
+    // println!("w2_values: {:?}", w2_values);
+    // println!("w3_values: {:?}", w3_values);
+    // println!("w4_values: {:?}", w4_values);
+    // println!("wo_values: {:?}", wo_values);
     
     // Create circuit info
     let circuit_info = PlonkishCircuitInfo {
