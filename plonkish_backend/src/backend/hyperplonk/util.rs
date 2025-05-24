@@ -35,31 +35,32 @@ use std::{
 };
 
 
-
 /// Create a PlonkishCircuitInfo for Anemoi hash with TurboPlonk constraints
 /// Based on the paper "An efficient verifiable state for zk-EVM and beyond from the Anemoi hash function"
 pub fn anemoi_hash_circuit_info<F: PrimeField>(
     num_vars: usize,
     _num_rounds: usize,
 ) -> PlonkishCircuitInfo<F> {
-    // We need 5 wires as described in the paper: w1, w2, w3, w4, wo
-    // And 14 selector polynomials for the Anemoi constraints
-    
-    // Create expressions for wire polynomials
-    let [w1, w2, w3, w4, wo] = &array::from_fn(|i| {
-        Query::new(i, Rotation::cur())
-    }).map(Expression::Polynomial);
-    
+
+    //14 selector polynomials for the Anemoi constraints
     // Create expressions for selector polynomials
     let [q1, q2, q3, q4, qo, qm1, qm2, qc, qecc, qb, qprk1, qprk2, qprk3, qprk4] = 
-        &array::from_fn(|i| Query::new(i + 5, Rotation::cur())).map(Expression::Polynomial);
+        &array::from_fn(|i| Query::new(i, Rotation::cur())).map(Expression::Polynomial);
+
+    // We need 5 wires as described in the paper: w1, w2, w3, w4, wo
+    // Create expressions for wire polynomials
+    let [w1, w2, w3, w4, wo] = &array::from_fn(|i| {
+        Query::new(i + 14, Rotation::cur())
+    }).map(Expression::Polynomial);
+
+    
     
     // Create expressions for next rotation (for Anemoi constraints)
-    let [w1_next, w2_next, w3_next, _wo_next] = &[
-        Query::new(0, Rotation::next()),
-        Query::new(1, Rotation::next()),
-        Query::new(2, Rotation::next()),
-        Query::new(4, Rotation::next()),
+    let [w1_next, w2_next, w3_next, w4_next] = &[
+        Query::new(14, Rotation::next()),
+        Query::new(15, Rotation::next()),
+        Query::new(16, Rotation::next()),
+        Query::new(17, Rotation::next()),
     ].map(Expression::Polynomial);
     
     // Base constraint (TurboPlonk gate)
@@ -93,7 +94,7 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
     
     // Second Anemoi equation  
     let anemoi_2 = qprk3.clone() * (
-        (c_prime_2.clone() - wo).pow(5)
+        (c_prime_2.clone() - w4_next).pow(5)
         + g.clone() * c_prime_2.clone().pow(2)
         - (g.clone() * (Expression::Constant(F::from(2u64)) * w1 + w4) 
            + (g.clone() * g.clone() + Expression::one()) * (Expression::Constant(F::from(2u64)) * w2 + w3) + qprk2)
@@ -109,16 +110,20 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
     
     // Fourth Anemoi equation
     let anemoi_4 = qprk3.clone() * (
-        (c_prime_2 - wo.clone()).pow(5)
-        + g * wo.clone().pow(2)
-        + g_inv
+        (c_prime_2 - w4_next.clone()).pow(5)
+        + g.clone() * w4_next.clone().pow(2)
+        + g_inv.clone()
         - w2_next
     );
-    
+
+    // let test_constraint =  g * g_inv.clone() - Expression::one() ;
+
     // Collect all constraints
     let mut constraints = vec![base_constraint];
     constraints.extend(bool_constraints);
-    constraints.extend(vec![anemoi_1, anemoi_2, anemoi_3, anemoi_4]);
+    // constraints.extend(vec![anemoi_1, anemoi_2, anemoi_3, anemoi_4]);
+    // constraints.extend(vec![test_constraint]);
+    
     
     // Create preprocessed polynomials (selectors) - 14 selectors
     let preprocess_polys = vec![vec![F::ZERO; 1 << num_vars]; 14];
@@ -138,7 +143,9 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
 
 /// Generate a complete Anemoi hash circuit implementing the paper's specifications
 /// Automatically determines the required num_vars based on gate count
-pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
+/// Generate a complete Anemoi hash circuit implementing the paper's specifications
+/// Automatically determines the required num_vars based on gate count
+pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<usize>>(
     mut _preprocess_rng: impl RngCore,
     mut witness_rng: impl RngCore,
 ) -> (PlonkishCircuitInfo<F>, impl PlonkishCircuit<F>) {
@@ -148,7 +155,6 @@ pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
     // Calculate minimum num_vars needed
     let num_vars = (GATES_NEEDED as f64).log2().ceil() as usize;
     let size = 1 << num_vars;
-    let usable_indices = R::from(num_vars).usable_indices();
     
     // Initialize polynomials
     let mut w1_values = vec![F::ZERO; size];
@@ -177,7 +183,7 @@ pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
     
     // Use real Anemoi constants
     let generator = F::from(5u64);
-    let generator_inv = F::from_str_vartime("8755297148735710088898562298102910035419345760166413737479281674630323398247").unwrap_or(generator.invert().unwrap());
+    let generator_inv = F::from_str_vartime("8755297148735710088898562298102910035419345760166413737479281674630323398247").unwrap_or(F::ZERO);
     let generator_square_plus_one = F::from(26u64);
     
     // Real ROUND_KEYS_X and ROUND_KEYS_Y from AnemoiJive254
@@ -283,9 +289,6 @@ pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
             F::from_str_vartime(round_key[1]).unwrap_or(F::ZERO),
         ])
         .collect();
-
-    // println!("preprocessed_round_keys_x: {:?}", preprocessed_round_keys_x);
-    // println!("preprocessed_round_keys_y: {:?}", preprocessed_round_keys_y);
     
     // Alpha inverse values for S-box
     let alpha_inv = [14981214993055009997u64, 6006880321387387405u64, 10624953561019755799u64, 2789598613442376532u64];
@@ -294,41 +297,29 @@ pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
     // let mut current_x = [F::random(&mut witness_rng), F::random(&mut witness_rng)];
     // let mut current_y = [F::random(&mut witness_rng), F::ZERO]; // Salt is 0
     let mut current_x = [F::from(1u64), F::from(2u64)];
-    let mut current_y = [F::from(3u64), F::ZERO];
-    
-    let actual_gates = GATES_NEEDED.min(usable_indices.len());
-    
-    // Input gate
-    if !usable_indices.is_empty() {
-        let idx = usable_indices[0];
-        w1_values[idx] = current_x[0];
-        w2_values[idx] = current_x[1];
-        w3_values[idx] = current_y[0];
-        w4_values[idx] = current_y[1];
-        wo_values[idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1]; // Jive output
-        
-        // Simple constraint for input gate
-        q1[idx] = F::ONE;
-        q2[idx] = F::ONE;
-        q3[idx] = F::ONE;
-        q4[idx] = F::ONE;
-        qo[idx] = F::ONE;
-    }
+    let mut current_y = [F::from(3u64), F::from(423u64)];
     
     // Anemoi rounds - simulate the actual Anemoi permutation following mod.rs
     for round in 0..NUM_ROUNDS {
-        if round + 1 >= actual_gates {
-            break;
-        }
-        
-        let idx = usable_indices[round + 1];
+
+        if round == 0 {
+            q4[round] = F::ONE;
+            qc[round] = -F::from(423u64);
+        } 
+        // Set preprocessed round key selectors (use preprocessed values for qprk)
+        qprk1[round] = preprocessed_round_keys_x[round][0];
+        qprk2[round] = preprocessed_round_keys_x[round][1];
+        qprk3[round] = preprocessed_round_keys_y[round][0];
+        qprk4[round] = preprocessed_round_keys_y[round][1];
         
         // Store pre-round values
-        w1_values[idx] = current_x[0];
-        w2_values[idx] = current_x[1];
-        w3_values[idx] = current_y[0];
-        w4_values[idx] = current_y[1];
-        
+        // Only add copy constraint for wo -> w4 connection as you mentioned
+        w1_values[round] = current_x[0];
+        w2_values[round] = current_x[1];
+        w3_values[round] = current_y[0];
+        w4_values[round] = current_y[1];
+
+
         // Apply one round of Anemoi permutation following mod.rs implementation
         // Step 1: Add round constants
         current_x[0] += round_keys_x[round][0];
@@ -357,25 +348,105 @@ pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
         // Step 4: S-box application
         for i in 0..2 {
             current_x[i] -= generator * current_y[i].square();
-            current_y[i] = current_y[i].pow(alpha_inv); // Use alpha_inv for power
+            current_y[i] -= current_x[i].pow(alpha_inv); // Use alpha_inv for power
             current_x[i] += generator * current_y[i].square() + generator_inv;
         }
+
+        // // 测试anemoi
+        // // Verify Anemoi constraints after each round
+        // let w1 = w1_values[round];
+        // let w2 = w2_values[round];
+        // let w3 = w3_values[round];
+        // let w4 = w4_values[round];
+        // let qprk1_val = qprk1[round];
+        // let qprk2_val = qprk2[round];
+        // let qprk3_val = qprk3[round];
+        // let qprk4_val = qprk4[round];
         
-        // Set preprocessed round key selectors (use preprocessed values for qprk)
-        qprk1[idx] = preprocessed_round_keys_x[round][0];
-        qprk2[idx] = preprocessed_round_keys_x[round][1];
-        qprk3[idx] = preprocessed_round_keys_y[round][0];
-        qprk4[idx] = preprocessed_round_keys_y[round][1];
+        // // Next round values - these should be the state after this round's transformation
+        // let w1_next = current_x[0];  // Next round w1
+        // let w2_next = current_x[1];  // Next round w2
+        // let w3_next = current_y[0];  // Next round w3
+        // let wo = current_y[1];
+
         
-        // Output for this round
-        wo_values[idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1];
+        // // wo for the current gate - this should satisfy the output constraint
+        // // For now, let's see what value would make the constraints zero
+
+        // // Helper expressions for Anemoi round
+        // let c_prime_1 = w1 + w4 + generator * (w2 + w3) + qprk3_val;
+        // let c_prime_2 = generator * (w1 + w4) + generator_square_plus_one * (w2 + w3) + qprk4_val;
         
-        // Only add copy constraint for wo -> w4 connection as you mentioned
-        if round > 0 {
-            let prev_idx = usable_indices[round];
-            permutation.copy((4, prev_idx), (3, idx)); // wo -> w4 only
-        }
+        // // Calculate differences for power operations
+        // let diff1 = c_prime_1 - w3_next;
+        // let diff2 = c_prime_2 - wo;
+        
+        // // First Anemoi equation
+        // let anemoi_1 = qprk3_val * (
+        //     diff1.pow([5u64])  // (c_prime_1 - w3_next)^5
+        //     + generator * c_prime_1.square()
+        //     - (F::from(2u64) * w1 + w4 + generator * (F::from(2u64) * w2 + w3) + qprk1_val)
+        // );
+        
+        // // Second Anemoi equation  
+        // let anemoi_2 = qprk3_val * (
+        //     diff2.pow([5u64])  // (c_prime_2 - wo)^5
+        //     + generator * c_prime_2.square()
+        //     - (generator * (F::from(2u64) * w1 + w4) 
+        //         + generator_square_plus_one * (F::from(2u64) * w2 + w3) + qprk2_val)
+        // );
+        
+        // // Third Anemoi equation  
+        // let anemoi_3 = qprk3_val * (
+        //     diff1.pow([5u64])  // (c_prime_1 - w3_next)^5
+        //     + generator * w3_next.square()
+        //     + generator_inv
+        //     - w1_next
+        // );
+        
+        // // Fourth Anemoi equation
+        // let anemoi_4 = qprk3_val * (
+        //     diff2.pow([5u64])  // (c_prime_2 - wo)^5
+        //     + generator * wo.square()
+        //     + generator_inv
+        //     - w2_next
+        // );
+
+        // // Try to find the correct wo value that would make anemoi_2 and anemoi_4 zero
+        // // From anemoi_2: qprk3 * ((c_prime_2 - wo)^5 + g * c_prime_2^2 - (...)) = 0
+        // // From anemoi_4: qprk3 * ((c_prime_2 - wo)^5 + g * wo^2 + g_inv - w2_next) = 0
+        
+        // println!("Round {}: Constraint verification", round);
+        // println!("  Pre-round state: w1={:?}, w2={:?}, w3={:?}, w4={:?}", w1, w2, w3, w4);
+        // println!("  Post-round state: x={:?}, y={:?}", current_x, current_y);
+        // println!("  Next values: w1_next={:?}, w2_next={:?}, w3_next={:?}", w1_next, w2_next, w3_next);
+        // println!("  wo (Jive sum)={:?}", wo);
+        // println!("  Helper values:");
+        // println!("    c_prime_1={:?}", c_prime_1);
+        // println!("    c_prime_2={:?}", c_prime_2);
+        // println!("    diff1 (c_prime_1 - w3_next)={:?}", diff1);
+        // println!("    diff2 (c_prime_2 - wo)={:?}", diff2);
+        // println!("  Preprocessed round keys:");
+        // println!("    qprk1={:?}", qprk1_val);
+        // println!("    qprk2={:?}", qprk2_val);
+        // println!("    qprk3={:?}", qprk3_val);
+        // println!("    qprk4={:?}", qprk4_val);
+        // println!("  CONSTRAINT VALUES:");
+        // println!("    anemoi_1 = {:?}", anemoi_1);
+        // println!("    anemoi_2 = {:?}", anemoi_2);  
+        // println!("    anemoi_3 = {:?}", anemoi_3);
+        // println!("    anemoi_4 = {:?}", anemoi_4);
+        
+        // 5.24 10:03 运算正确
+        // println!("current_x: {:?}", current_x);
+        // println!("current_y: {:?}", current_y);   
     }
+
+    w1_values[NUM_ROUNDS] = current_x[0];
+    w2_values[NUM_ROUNDS] = current_x[1];
+    w3_values[NUM_ROUNDS] = current_y[0];
+    w4_values[NUM_ROUNDS] = current_y[1];
+
     
     // Final transformations (post-rounds) following mod.rs
     // Final MDS application
@@ -394,31 +465,19 @@ pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
         current_y[i] += current_x[i];
         current_x[i] += current_y[i];
     }
-    
-    // Final output gate
-    if NUM_ROUNDS + 1 < actual_gates {
-        let idx = usable_indices[NUM_ROUNDS + 1];
-        w1_values[idx] = current_x[0];
-        w2_values[idx] = current_x[1];
-        w3_values[idx] = current_y[0];
-        w4_values[idx] = current_y[1];
-        wo_values[idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1]; // Final Jive output
-        
-        // Simple constraint for final output
-        q1[idx] = F::ONE;
-        q2[idx] = F::ONE;
-        q3[idx] = F::ONE;
-        q4[idx] = F::ONE;
-        qo[idx] = F::ONE;
-    }
-    
+
+    w1_values[NUM_ROUNDS+1] = current_x[0];
+    w2_values[NUM_ROUNDS+1] = current_x[1];
+    w3_values[NUM_ROUNDS+1] = current_y[0];
+    w4_values[NUM_ROUNDS+1] = current_y[1];
+
+
     println!("w1_values: {:?}", w1_values);
     println!("w2_values: {:?}", w2_values);
     println!("w3_values: {:?}", w3_values);
     println!("w4_values: {:?}", w4_values);
-    println!("wo_values: {:?}", wo_values);
 
-
+    
     // Create circuit info
     let circuit_info = PlonkishCircuitInfo {
         k: num_vars,
@@ -434,6 +493,7 @@ pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
         permutations: permutation.into_cycles(),
         max_degree: Some(7),
     };
+
     
     let witness = vec![w1_values, w2_values, w3_values, w4_values, wo_values];
     
@@ -442,287 +502,6 @@ pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
         MockCircuit::new(vec![], witness),
     )
 }
-
-
-
-
-
-// pub fn rand_anemoi_hash_circuit<F: PrimeField, R: Rotatable + From<usize>>(
-//     mut _preprocess_rng: impl RngCore,
-//     mut witness_rng: impl RngCore,
-// ) -> (PlonkishCircuitInfo<F>, impl PlonkishCircuit<F>) {
-//     const NUM_ROUNDS: usize = 14; // From AnemoiJive256 specification
-//     const GATES_NEEDED: usize = NUM_ROUNDS + 3; // Input + rounds + output + padding
-    
-//     // Calculate minimum num_vars needed
-//     let num_vars = (GATES_NEEDED as f64).log2().ceil() as usize;
-//     let size = 1 << num_vars;
-//     let usable_indices = R::from(num_vars).usable_indices();
-    
-//     // Initialize polynomials
-//     let mut w1_values = vec![F::ZERO; size];
-//     let mut w2_values = vec![F::ZERO; size];
-//     let mut w3_values = vec![F::ZERO; size];
-//     let mut w4_values = vec![F::ZERO; size];
-//     let mut wo_values = vec![F::ZERO; size];
-    
-//     // Selector polynomials (14 total)
-//     let mut q1 = vec![F::ZERO; size];
-//     let mut q2 = vec![F::ZERO; size];
-//     let mut q3 = vec![F::ZERO; size];
-//     let mut q4 = vec![F::ZERO; size];
-//     let mut qo = vec![F::ZERO; size];
-//     let mut qm1 = vec![F::ZERO; size];
-//     let mut qm2 = vec![F::ZERO; size];
-//     let mut qc = vec![F::ZERO; size];
-//     let mut qecc = vec![F::ZERO; size];
-//     let mut qb = vec![F::ZERO; size];
-//     let mut qprk1 = vec![F::ZERO; size];
-//     let mut qprk2 = vec![F::ZERO; size];
-//     let mut qprk3 = vec![F::ZERO; size];
-//     let mut qprk4 = vec![F::ZERO; size];
-    
-//     let mut permutation = Permutation::default();
-    
-//     // Use real Anemoi constants
-//     let generator = F::from(5u64);
-//     let generator_inv = F::from_str_vartime("8755297148735710088898562298102910035419345760166413737479281674630323398247").unwrap_or(generator.invert().unwrap());
-//     let generator_square_plus_one = F::from(26u64);
-    
-//     // Real ROUND_KEYS_X from AnemoiJive254
-//     let round_keys_x_strings = [
-//         ["37", "3751828524803055471428227881618625174556947755988347881191159153764975591158"],
-//         ["13352247125433170118601974521234241686699252132838635793584252509352796067497", "21001839722121566863419881512791069124083822968210421491151340238400176843969"],
-//         ["8959866518978803666083663798535154543742217570455117599799616562379347639707", "21722442537234642741320951134727484119993387379465291657407115605240150584902"],
-//         ["3222831896788299315979047232033900743869692917288857580060845801753443388885", "5574110054747610058729632355948568604793546392090976147435879266833412620404"],
-//         ["11437915391085696126542499325791687418764799800375359697173212755436799377493", "19347108854758320361854968987183753113398822331033233961719129079198795045322"],
-//         ["14725846076402186085242174266911981167870784841637418717042290211288365715997", "17733032409684964025894538244134113560864261458948810209753406163729963104066"],
-//         ["3625896738440557179745980526949999799504652863693655156640745358188128872126", "16641102106808059030810525726117803887885616319153331237086309361060282564245"],
-//         ["463291105983501380924034618222275689104775247665779333141206049632645736639", "9245970744804222215259369270991414441925747897718226734085751033703871913242"],
-//         ["17443852951621246980363565040958781632244400021738903729528591709655537559937", "18243401795478654990110719981452738859015913555820749188627866268359980949315"],
-//         ["10761214205488034344706216213805155745482379858424137060372633423069634639664", "18200337361605220875540054729693479452916227111908726624753615870884702413869"],
-//         ["1555059412520168878870894914371762771431462665764010129192912372490340449901", "5239065275003145843160321807696531775964858360555566589197008236687533209496"],
-//         ["7985258549919592662769781896447490440621354347569971700598437766156081995625", "9376351072866485300578251734844671764089160611668390200194570180225759013543"],
-//         ["9570976950823929161626934660575939683401710897903342799921775980893943353035", "6407880900662180043240104510114613236916437723065414158006054747177494383655"],
-//         ["17962366505931708682321542383646032762931774796150042922562707170594807376009", "6245130621382842925623937534683990375669631277871468906941032622563934866013"],
-//     ];
-    
-//     // Real ROUND_KEYS_Y from AnemoiJive254
-//     let round_keys_y_strings = [
-//         ["8755297148735710088898562298102910035419345760166413737479281674630323398284", "16133435893292874812888083849160666046321318009323051176910097996974633748758"],
-//         ["5240474505904316858775051800099222288270827863409873986701694203345984265770", "16516377322346822856154252461095180562000423191949949242508439100972699801595"],
-//         ["9012679925958717565787111885188464538194947839997341443807348023221726055342", "3513323292129390671339287145562649862242777741759770715956300048086055264273"],
-//         ["21855834035835287540286238525800162342051591799629360593177152465113152235615", "5945179541709432313351711573896685950772105367183734375093638912196647730870"],
-//         ["11227229470941648605622822052481187204980748641142847464327016901091886692935", "874490282529106871250179638055108647411431264552976943414386206857408624500"],
-//         ["8277823808153992786803029269162651355418392229624501612473854822154276610437", "14911320361190879980016686915823914584756893340104182663424627943175208757859"],
-//         ["20904607884889140694334069064199005451741168419308859136555043894134683701950", "15657880601171476575713502187548665287918791967520790431542060879010363657805"],
-//         ["1902748146936068574869616392736208205391158973416079524055965306829204527070", "14311738005510898661766244714944477794557156116636816483240167459479765463026"],
-//         ["14452570815461138929654743535323908350592751448372202277464697056225242868484", "18878429879072656191963192145256996413709289475622337294803628783509021017215"],
-//         ["10548134661912479705005015677785100436776982856523954428067830720054853946467", "21613568037783775488400147863112554980555854603176833550688470336449256480025"],
-//         ["17068729307795998980462158858164249718900656779672000551618940554342475266265", "2490802518193809975066473675670874471230712567215812226164489400543194289596"],
-//         ["16199718037005378969178070485166950928725365516399196926532630556982133691321", "21217120779706380859547833993003263088538196273665904984368420139631145468592"],
-//         ["19148564379197615165212957504107910110246052442686857059768087896511716255278", "19611778548789975299387421023085714500105803761017217976092023831374602045251"],
-//         ["5497141763311860520411283868772341077137612389285480008601414949457218086902", "19294458970356379238521378434506704614768857764591229894917601756581488831876"],
-//     ];
-    
-//     // Convert string constants to F
-//     let round_keys_x: Vec<[F; 2]> = round_keys_x_strings
-//         .iter()
-//         .map(|round_key| [
-//             F::from_str_vartime(round_key[0]).unwrap_or(F::ZERO),
-//             F::from_str_vartime(round_key[1]).unwrap_or(F::ZERO),
-//         ])
-//         .collect();
-    
-//     let round_keys_y: Vec<[F; 2]> = round_keys_y_strings
-//         .iter()
-//         .map(|round_key| [
-//             F::from_str_vartime(round_key[0]).unwrap_or(F::ZERO),
-//             F::from_str_vartime(round_key[1]).unwrap_or(F::ZERO),
-//         ])
-//         .collect();
-    
-//     // Create initial state (2 field elements each for x and y)
-//     let mut current_x = [F::random(&mut witness_rng), F::random(&mut witness_rng)];
-//     let mut current_y = [F::random(&mut witness_rng), F::ZERO]; // Salt is 0
-
-//     println!("current_x: {:?}", current_x);
-//     println!("current_y: {:?}", current_y);
-    
-//     let actual_gates = GATES_NEEDED.min(usable_indices.len());
-    
-//     // Input gate
-//     if !usable_indices.is_empty() {
-//         let idx = usable_indices[0];
-//         w1_values[idx] = current_x[0];
-//         w2_values[idx] = current_x[1];
-//         w3_values[idx] = current_y[0];
-//         w4_values[idx] = current_y[1];
-//         wo_values[idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1]; // Jive output
-        
-//         // Simple constraint for input gate
-//         q1[idx] = F::ONE;
-//         q2[idx] = F::ONE;
-//         q3[idx] = F::ONE;
-//         q4[idx] = F::ONE;
-//         qo[idx] = F::ONE;
-//     }
-    
-//     // Anemoi rounds - simulate the actual Anemoi permutation
-//     for round in 0..NUM_ROUNDS {
-//         if round + 1 >= actual_gates {
-//             break;
-//         }
-        
-//         let idx = usable_indices[round + 1];
-        
-//         // Get round constants (already converted to F)
-//         let round_x = if round < round_keys_x.len() {
-//             round_keys_x[round]
-//         } else {
-//             [F::ZERO, F::ZERO]
-//         };
-//         let round_y = if round < round_keys_y.len() {
-//             round_keys_y[round]
-//         } else {
-//             [F::ZERO, F::ZERO]
-//         };
-        
-//         // Store pre-round values
-//         w1_values[idx] = current_x[0];
-//         w2_values[idx] = current_x[1];
-//         w3_values[idx] = current_y[0];
-//         w4_values[idx] = current_y[1];
-        
-//         // Apply one round of Anemoi permutation
-//         // Add round constants
-//         current_x[0] += round_x[0];
-//         current_x[1] += round_x[1];
-//         current_y[0] += round_y[0];
-//         current_y[1] += round_y[1];
-        
-//         // Apply MDS matrix using converted constants
-//         let temp_x0 = current_x[0] + generator * current_x[1];
-//         let temp_x1 = generator * current_x[0] + generator_square_plus_one * current_x[1];
-//         current_x[0] = temp_x0;
-//         current_x[1] = temp_x1;
-        
-//         // Apply MDS to y with word permutation
-//         let temp_y0 = current_y[1] + generator * current_y[0];
-//         let temp_y1 = generator * current_y[1] + generator_square_plus_one * current_y[0];
-//         current_y[0] = temp_y0;
-//         current_y[1] = temp_y1;
-        
-//         // PHT transformation (if used)
-//         if AnemoiJive256::USE_PHT {
-//             for i in 0..2 {
-//                 current_y[i] += current_x[i];
-//                 current_x[i] += current_y[i];
-//             }
-//         }
-        
-//         // Apply S-box
-//         for i in 0..2 {
-//             current_x[i] -= generator * current_y[i].square();
-//             current_y[i] = current_y[i].pow([AnemoiJive256::ALPHA as u64]);
-//             current_x[i] += generator * current_y[i].square() + generator_inv;
-//         }
-        
-//         // Set preprocessed round key selectors (use converted values)
-//         qprk1[idx] = round_x[0];
-//         qprk2[idx] = round_x[1];
-//         qprk3[idx] = round_y[0];
-//         qprk4[idx] = round_y[1];
-        
-//         // Output for this round
-//         wo_values[idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1];
-        
-//         // Only add copy constraint for wo -> w4 connection as you mentioned
-//         if round > 0 {
-//             let prev_idx = usable_indices[round];
-//             permutation.copy((4, prev_idx), (3, idx)); // wo -> w4 only
-//         }
-//     }
-    
-//     // Final MDS application (post-rounds)
-//     let temp_x0 = current_x[0] + generator * current_x[1];
-//     let temp_x1 = generator * current_x[0] + generator_square_plus_one * current_x[1];
-//     current_x[0] = temp_x0;
-//     current_x[1] = temp_x1;
-    
-//     let temp_y0 = current_y[1] + generator * current_y[0];
-//     let temp_y1 = generator * current_y[1] + generator_square_plus_one * current_y[0];
-//     current_y[0] = temp_y0;
-//     current_y[1] = temp_y1;
-    
-//     if AnemoiJive256::USE_PHT {
-//         for i in 0..2 {
-//             current_y[i] += current_x[i];
-//             current_x[i] += current_y[i];
-//         }
-//     }
-    
-//     // Final output gate
-//     if NUM_ROUNDS + 1 < actual_gates {
-//         let idx = usable_indices[NUM_ROUNDS + 1];
-//         w1_values[idx] = current_x[0];
-//         w2_values[idx] = current_x[1];
-//         w3_values[idx] = current_y[0];
-//         w4_values[idx] = current_y[1];
-//         wo_values[idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1]; // Final Jive output
-        
-//         // Simple constraint for final output
-//         q1[idx] = F::ONE;
-//         q2[idx] = F::ONE;
-//         q3[idx] = F::ONE;
-//         q4[idx] = F::ONE;
-//         qo[idx] = F::ONE;
-//     }
-    
-//     println!("wo_values: {:?}", w1_values);
-
-    
-//     // Create circuit info
-//     let circuit_info = PlonkishCircuitInfo {
-//         k: num_vars,
-//         num_instances: vec![],
-//         preprocess_polys: vec![
-//             q1, q2, q3, q4, qo, qm1, qm2, qc, qecc, qb,
-//             qprk1, qprk2, qprk3, qprk4
-//         ],
-//         num_witness_polys: vec![5],
-//         num_challenges: vec![0],
-//         constraints: anemoi_hash_circuit_info::<F>(num_vars, NUM_ROUNDS).constraints,
-//         lookups: Vec::new(),
-//         permutations: permutation.into_cycles(),
-//         max_degree: Some(7),
-//     };
-    
-//     let witness = vec![w1_values, w2_values, w3_values, w4_values, wo_values];
-    
-//     (
-//         circuit_info,
-//         MockCircuit::new(vec![], witness),
-//     )
-// }
-
-// /// Create a circuit that computes Anemoi Jive compression (3-to-1)
-// pub fn anemoi_jive_compression_circuit<F: PrimeField>(
-//     num_vars: usize,
-// ) -> PlonkishCircuitInfo<F> {
-//     const NUM_ROUNDS: usize = 14; // From the paper
-    
-//     // Create base Anemoi circuit
-//     let mut circuit_info = anemoi_hash_circuit_info::<F>(num_vars, NUM_ROUNDS);
-    
-//     // Add constraint for final sum computation (Jive mode)
-//     // The output is sum of input and output of permutation
-//     let output_sum_gate = NUM_ROUNDS * 16; // After all round gates
-    
-//     // Additional constraints for Jive compression can be added here
-    
-//     circuit_info
-// }
 
 
 pub fn vanilla_plonk_circuit_info<F: PrimeField>(
