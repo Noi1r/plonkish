@@ -56,11 +56,10 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
     
     
     // Create expressions for next rotation (for Anemoi constraints)
-    let [w1_next, w2_next, w3_next, w4_next] = &[
+    let [w1_next, w2_next, w3_next] = &[
         Query::new(14, Rotation::next()),
         Query::new(15, Rotation::next()),
         Query::new(16, Rotation::next()),
-        Query::new(17, Rotation::next()),
     ].map(Expression::Polynomial);
     
     // Base constraint (TurboPlonk gate)
@@ -78,7 +77,7 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
     
     // Anemoi constraints (from Section 6 of the paper)
     let g = Expression::<F>::Constant(F::from(5u64)); // Generator
-    let g_inv = Expression::<F>::Constant(F::from(5u64).invert().unwrap()); // Delta
+    let g_inv = Expression::<F>::Constant(F::from_str_vartime("8755297148735710088898562298102910035419345760166413737479281674630323398247").unwrap()); // Delta
     
     // Helper expressions for Anemoi round
     let c_prime_1 = w1 + w4 + g.clone() * (w2 + w3) + qprk3;
@@ -94,7 +93,7 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
     
     // Second Anemoi equation  
     let anemoi_2 = qprk3.clone() * (
-        (c_prime_2.clone() - w4_next).pow(5)
+        (c_prime_2.clone() - wo).pow(5)
         + g.clone() * c_prime_2.clone().pow(2)
         - (g.clone() * (Expression::Constant(F::from(2u64)) * w1 + w4) 
            + (g.clone() * g.clone() + Expression::one()) * (Expression::Constant(F::from(2u64)) * w2 + w3) + qprk2)
@@ -110,8 +109,8 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
     
     // Fourth Anemoi equation
     let anemoi_4 = qprk3.clone() * (
-        (c_prime_2 - w4_next.clone()).pow(5)
-        + g.clone() * w4_next.clone().pow(2)
+        (c_prime_2 - wo.clone()).pow(5)
+        + g.clone() * wo.clone().pow(2)
         + g_inv.clone()
         - w2_next
     );
@@ -180,7 +179,11 @@ pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<
     let mut qprk4 = vec![F::ZERO; size];
     
     let mut permutation = Permutation::default();
-    
+    // 1. 初始化：为每个witness多项式创建初始cycle
+    // for poly_idx in 14..=18 {  // w1, w2, w3, w4, wo
+    //     permutation.copy((poly_idx, 1), (poly_idx, 1));  // 自引用
+    // }
+
     // Use real Anemoi constants
     let generator = F::from(5u64);
     let generator_inv = F::from_str_vartime("8755297148735710088898562298102910035419345760166413737479281674630323398247").unwrap_or(F::ZERO);
@@ -296,29 +299,48 @@ pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<
     // Create initial state (2 field elements each for x and y)
     // let mut current_x = [F::random(&mut witness_rng), F::random(&mut witness_rng)];
     // let mut current_y = [F::random(&mut witness_rng), F::ZERO]; // Salt is 0
-    let mut current_x = [F::from(1u64), F::from(2u64)];
+    let mut current_x = [F::from(1u64), F::from(1u64)];
     let mut current_y = [F::from(3u64), F::from(423u64)];
+
+
+
+    // fuck, index 0 can't be used for shift
+    // TODO: FIX Rotatable FIELD RR
+    let idx = 0;
+    w1_values[idx] = current_x[0];
+    w2_values[idx] = current_x[1];
+    w3_values[idx] = current_y[0];
+    w4_values[idx] = current_y[1];
+    wo_values[idx] = current_x[0] + current_x[1] + current_y[0] + current_y[1]; // Jive output
     
+    // Simple constraint for input gate
+    q1[idx] = F::ONE;
+    q2[idx] = F::ONE;
+    q3[idx] = F::ONE;
+    q4[idx] = F::ONE;
+    qo[idx] = F::ONE;
+
+
+
     // Anemoi rounds - simulate the actual Anemoi permutation following mod.rs
     for round in 0..NUM_ROUNDS {
-
+        let idx = round + 1;
         if round == 0 {
-            q4[round] = F::ONE;
-            qc[round] = -F::from(423u64);
+            q4[idx] = F::ONE;
+            qc[idx] = -F::from(423u64);
         } 
         // Set preprocessed round key selectors (use preprocessed values for qprk)
-        qprk1[round] = preprocessed_round_keys_x[round][0];
-        qprk2[round] = preprocessed_round_keys_x[round][1];
-        qprk3[round] = preprocessed_round_keys_y[round][0];
-        qprk4[round] = preprocessed_round_keys_y[round][1];
+        qprk1[idx] = preprocessed_round_keys_x[round][0];
+        qprk2[idx] = preprocessed_round_keys_x[round][1];
+        qprk3[idx] = preprocessed_round_keys_y[round][0];
+        qprk4[idx] = preprocessed_round_keys_y[round][1];
         
         // Store pre-round values
         // Only add copy constraint for wo -> w4 connection as you mentioned
-        w1_values[round] = current_x[0];
-        w2_values[round] = current_x[1];
-        w3_values[round] = current_y[0];
-        w4_values[round] = current_y[1];
-
+        w1_values[idx] = current_x[0];
+        w2_values[idx] = current_x[1];
+        w3_values[idx] = current_y[0];
+        w4_values[idx] = current_y[1];
 
         // Apply one round of Anemoi permutation following mod.rs implementation
         // Step 1: Add round constants
@@ -354,14 +376,14 @@ pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<
 
         // // 测试anemoi
         // // Verify Anemoi constraints after each round
-        // let w1 = w1_values[round];
-        // let w2 = w2_values[round];
-        // let w3 = w3_values[round];
-        // let w4 = w4_values[round];
-        // let qprk1_val = qprk1[round];
-        // let qprk2_val = qprk2[round];
-        // let qprk3_val = qprk3[round];
-        // let qprk4_val = qprk4[round];
+        // let w1 = w1_values[idx];
+        // let w2 = w2_values[idx];
+        // let w3 = w3_values[idx];
+        // let w4 = w4_values[idx];
+        // let qprk1_val = qprk1[idx];
+        // let qprk2_val = qprk2[idx];
+        // let qprk3_val = qprk3[idx];
+        // let qprk4_val = qprk4[idx];
         
         // // Next round values - these should be the state after this round's transformation
         // let w1_next = current_x[0];  // Next round w1
@@ -442,10 +464,15 @@ pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<
         // println!("current_y: {:?}", current_y);   
     }
 
-    w1_values[NUM_ROUNDS] = current_x[0];
-    w2_values[NUM_ROUNDS] = current_x[1];
-    w3_values[NUM_ROUNDS] = current_y[0];
-    w4_values[NUM_ROUNDS] = current_y[1];
+    w1_values[NUM_ROUNDS+1] = current_x[0];
+    w2_values[NUM_ROUNDS+1] = current_x[1];
+    w3_values[NUM_ROUNDS+1] = current_y[0];
+    w4_values[NUM_ROUNDS+1] = current_y[1];
+    // q1[NUM_ROUNDS+1] = F::from(2u64) * generator;
+    // q2[NUM_ROUNDS+1] = generator * generator + generator + F::ONE;
+    // q3[NUM_ROUNDS+1] = generator * generator + generator + F::ONE;
+    // q4[NUM_ROUNDS+1] = F::from(2u64) * generator;
+    // qo[NUM_ROUNDS+1] = F::ONE;
 
     
     // Final transformations (post-rounds) following mod.rs
@@ -466,17 +493,42 @@ pub fn rand_anemoi_hash_circuit_with_flatten<F: PrimeField, R: Rotatable + From<
         current_x[i] += current_y[i];
     }
 
-    w1_values[NUM_ROUNDS+1] = current_x[0];
-    w2_values[NUM_ROUNDS+1] = current_x[1];
-    w3_values[NUM_ROUNDS+1] = current_y[0];
-    w4_values[NUM_ROUNDS+1] = current_y[1];
+    w1_values[NUM_ROUNDS+2] = current_x[0];
+    w2_values[NUM_ROUNDS+2] = current_x[1];
+    w3_values[NUM_ROUNDS+2] = current_y[0];
+    w4_values[NUM_ROUNDS+2] = current_y[1];
+    // wo_values[NUM_ROUNDS+1] = current_x[0] + current_x[1] + current_y[0] + current_y[1];
+    wo_values[NUM_ROUNDS+2] = current_x[0] + current_x[1] + current_y[0] + current_y[1];
+    q1[NUM_ROUNDS+2] = F::ONE;
+    q2[NUM_ROUNDS+2] = F::ONE;
+    q3[NUM_ROUNDS+2] = F::ONE;
+    q4[NUM_ROUNDS+2] = F::ONE;
+    qo[NUM_ROUNDS+2] = F::ONE;
 
 
+    for round in 1..NUM_ROUNDS+1 {
+        // 根据论文Section 5.3的优化：wo -> w4连接
+        wo_values[round] = w4_values[round + 1];
+        permutation.copy((17, round + 1), (18, round)); // wo -> w4 (下一轮)
+    }
+    // permutation.copy((17, 2), (18, 1));
+
+
+    println!("permutation: {:?}", permutation.cycles);
+    println!("q1: {:?}", q1);
+    println!("q2: {:?}", q2);
+    println!("q3: {:?}", q3);
+    println!("q4: {:?}", q4);
+    println!("qo: {:?}", qo);
+    println!("qprk1: {:?}", qprk1);
+    println!("qprk2: {:?}", qprk2);
+    println!("qprk3: {:?}", qprk3);
+    println!("qprk4: {:?}", qprk4);
     println!("w1_values: {:?}", w1_values);
     println!("w2_values: {:?}", w2_values);
     println!("w3_values: {:?}", w3_values);
     println!("w4_values: {:?}", w4_values);
-
+    println!("wo_values: {:?}", wo_values);
     
     // Create circuit info
     let circuit_info = PlonkishCircuitInfo {
