@@ -514,7 +514,7 @@ mod test {
     use crate::{
         backend::{
             hyperplonk::{
-                util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit, rand_anemoi_hash_circuit_with_flatten, rand_jive_crh_circuit},
+                util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit, rand_anemoi_hash_circuit_with_flatten, rand_jive_crh_circuit, rand_merkle_membership_proof_circuit},
                 HyperPlonk,
             },
             test::run_plonkish_backend,
@@ -564,6 +564,13 @@ mod test {
                 fn [<jive_crh_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
                         rand_jive_crh_circuit::<_, BinaryField>(<_>::from(1u64), <_>::from(2u64), <_>::from(3u64), <_>::from(4u64), seeded_std_rng(), seeded_std_rng())
+                    });
+                }
+
+                #[test]
+                fn [<merkle_membership_proof_ $suffix>]() {
+                    run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
+                        rand_merkle_membership_proof_circuit::<_, BinaryField>(30, seeded_std_rng(), seeded_std_rng())
                     });
                 }
             }

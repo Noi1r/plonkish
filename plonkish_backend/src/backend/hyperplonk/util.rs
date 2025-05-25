@@ -421,6 +421,113 @@ pub fn rand_jive_crh_circuit<F: PrimeField, R: Rotatable + From<usize>>(
 
 
 
+/// Create a PlonkishCircuitInfo for Anemoi hash with TurboPlonk constraints
+/// Based on the paper "An efficient verifiable state for zk-EVM and beyond from the Anemoi hash function"
+pub fn anemoi_hash_circuit_info_original<F: PrimeField>(
+    num_vars: usize,
+    // _num_rounds: usize,
+) -> PlonkishCircuitInfo<F> {
+
+    //14 selector polynomials for the Anemoi constraints
+    // Create expressions for selector polynomials
+    let [q1, q2, q3, q4, qo, qm1, qm2, qc, qecc, qb, qprk1, qprk2, qprk3, qprk4] = 
+        &array::from_fn(|i| Query::new(i, Rotation::cur())).map(Expression::Polynomial);
+
+    // We need 5 wires as described in the paper: w1, w2, w3, w4, wo
+    // Create expressions for wire polynomials
+    let [w1, w2, w3, w4, wo] = &array::from_fn(|i| {
+        Query::new(i + 14, Rotation::cur())
+    }).map(Expression::Polynomial);
+
+    
+    
+    // Create expressions for next rotation (for Anemoi constraints)
+    let [w1_next, w2_next, w3_next, w4_next] = &[
+        Query::new(14, Rotation::next()),
+        Query::new(15, Rotation::next()),
+        Query::new(16, Rotation::next()),
+        Query::new(17, Rotation::next()),
+    ].map(Expression::Polynomial);
+    
+    // Base constraint (TurboPlonk gate)
+    let base_constraint = q1 * w1 + q2 * w2 + q3 * w3 + q4 * w4
+        + qm1 * w1 * w2 + qm2 * w3 * w4 + qc
+        + qecc * w1 * w2 * w3 * w4 * wo
+        - qo * wo;
+    
+    // Boolean constraints
+    let bool_constraints = vec![
+        qb * w2 * (w2 - Expression::one()),
+        qb * w3 * (w3 - Expression::one()),
+        qb * w4 * (w4 - Expression::one()),
+    ];
+    
+    // Anemoi constraints (from Section 6 of the paper)
+    let g = Expression::<F>::Constant(F::from(5u64)); // Generator
+    let g_inv = Expression::<F>::Constant(F::from_str_vartime("8755297148735710088898562298102910035419345760166413737479281674630323398247").unwrap()); // Delta
+    
+    // Helper expressions for Anemoi round
+    let c_prime_1 = w1 + w4 + g.clone() * (w2 + w3) + qprk3;
+    let c_prime_2 = g.clone() * (w1 + w4) + (g.clone() * g.clone() + Expression::one()) * (w2 + w3) + qprk4;
+    
+    // First Anemoi equation
+    let anemoi_1 = qprk3.clone() * (
+        (c_prime_1.clone() - w3_next).pow(5)
+        + g.clone() * c_prime_1.clone().pow(2)
+        - (Expression::Constant(F::from(2u64)) * w1 + w4 
+          + g.clone() * (Expression::Constant(F::from(2u64)) * w2 + w3) + qprk1)
+    );
+    
+    // Second Anemoi equation  
+    let anemoi_2 = qprk3.clone() * (
+        (c_prime_2.clone() - w4_next).pow(5)
+        + g.clone() * c_prime_2.clone().pow(2)
+        - (g.clone() * (Expression::Constant(F::from(2u64)) * w1 + w4) 
+           + (g.clone() * g.clone() + Expression::one()) * (Expression::Constant(F::from(2u64)) * w2 + w3) + qprk2)
+    );
+    
+    // Third Anemoi equation
+    let anemoi_3 = qprk3.clone() * (
+        (c_prime_1 - w3_next.clone()).pow(5)
+        + g.clone() * w3_next.clone().pow(2)
+        + g_inv.clone()
+        - w1_next
+    );
+    
+    // Fourth Anemoi equation
+    let anemoi_4 = qprk3.clone() * (
+        (c_prime_2 - w4_next.clone()).pow(5)
+        + g.clone() * w4_next.clone().pow(2)
+        + g_inv.clone()
+        - w2_next
+    );
+
+    let test_constraint =  g * g_inv.clone() - Expression::one() ;
+
+    // Collect all constraints
+    let mut constraints = vec![base_constraint];
+    constraints.extend(bool_constraints);
+    constraints.extend(vec![anemoi_1, anemoi_2, anemoi_3, anemoi_4]);
+    // constraints.extend(vec![test_constraint]);
+    
+    
+    // Create preprocessed polynomials (selectors) - 14 selectors
+    let preprocess_polys = vec![vec![F::ZERO; 1 << num_vars]; 14];
+    
+    PlonkishCircuitInfo {
+        k: num_vars,
+        num_instances: vec![0],
+        preprocess_polys,
+        num_witness_polys: vec![5], // w1, w2, w3, w4, wo
+        num_challenges: vec![0],
+        constraints,
+        // constraints: vec![test_constraint],
+        lookups: Vec::new(),
+        permutations: Vec::new(),
+        max_degree: Some(7), // Due to pow(5) in Anemoi constraints
+    }
+}
+
 
 
 
@@ -450,6 +557,7 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
         Query::new(14, Rotation::next()),
         Query::new(15, Rotation::next()),
         Query::new(16, Rotation::next()),
+        // Query::new(17, Rotation::next()),
     ].map(Expression::Polynomial);
     
     // Base constraint (TurboPlonk gate)
@@ -505,7 +613,7 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
         - w2_next
     );
 
-    // let test_constraint =  g * g_inv.clone() - Expression::one() ;
+    let test_constraint =  g * g_inv.clone() - Expression::one() ;
 
     // Collect all constraints
     let mut constraints = vec![base_constraint];
@@ -524,6 +632,7 @@ pub fn anemoi_hash_circuit_info<F: PrimeField>(
         num_witness_polys: vec![5], // w1, w2, w3, w4, wo
         num_challenges: vec![0],
         constraints,
+        // constraints: vec![test_constraint],
         lookups: Vec::new(),
         permutations: Vec::new(),
         max_degree: Some(7), // Due to pow(5) in Anemoi constraints
@@ -972,7 +1081,7 @@ pub fn merkle_membership_proof_circuit<F: PrimeField, R: Rotatable + From<usize>
     const GATES_PER_LEVEL: usize = GATES_PER_JIVE + 10; // Jive CRH + position verification gates
     
     let tree_depth = merkle_path.len();
-    let padding_constants = generate_padding_constants::<F>(tree_depth);
+    let padding_constants = vec![F::ZERO; tree_depth];
     
     // Calculate total gates needed
     let total_gates = tree_depth * GATES_PER_LEVEL + 10; // Buffer for root verification
@@ -1183,6 +1292,10 @@ pub fn merkle_membership_proof_circuit<F: PrimeField, R: Rotatable + From<usize>
         w3_values[sel2_gate_idx] = partial_sum;
         w4_values[sel2_gate_idx] = F::ZERO;
         wo_values[sel2_gate_idx] = current_hash;
+
+        // println!("current_hash: {:?}", current_hash);
+        // println!("partial_sum: {:?}", partial_sum);
+        // println!("right_hash: {:?}", right_hash);
         
         qm1[sel2_gate_idx] = F::ONE;
         q3[sel2_gate_idx] = F::ONE;
@@ -1193,6 +1306,7 @@ pub fn merkle_membership_proof_circuit<F: PrimeField, R: Rotatable + From<usize>
         // Input gate for Jive CRH
         let jive_input_idx = usable_indices[gate_counter];
         gate_counter += 1;
+        // let jive_start = usable_indices[gate_counter];
         
         let mut jive_x = [left_hash, middle_hash];
         let mut jive_y = [right_hash, level_padding];
@@ -1303,22 +1417,6 @@ pub fn merkle_membership_proof_circuit<F: PrimeField, R: Rotatable + From<usize>
         let sum_after_perm = jive_x[0] + jive_x[1] + jive_y[0] + jive_y[1];
         wo_values[next_round_idx] = sum_after_perm;
         
-        // // Sum computation gate
-        // let sum_gate_idx = usable_indices[gate_counter];
-        // gate_counter += 1;
-        
-        // w1_values[sum_gate_idx] = jive_x[0];
-        // w2_values[sum_gate_idx] = jive_x[1];
-        // w3_values[sum_gate_idx] = jive_y[0];
-        // w4_values[sum_gate_idx] = jive_y[1];
-        // wo_values[sum_gate_idx] = sum_after_perm;
-        
-        // // Constraint: wo = w1 + w2 + w3 + w4
-        // q1[sum_gate_idx] = F::ONE;
-        // q2[sum_gate_idx] = F::ONE;
-        // q3[sum_gate_idx] = F::ONE;
-        // q4[sum_gate_idx] = F::ONE;
-        // qo[sum_gate_idx] = F::ONE;
         
         // Final Jive output gate
         let jive_output_idx = usable_indices[gate_counter];
@@ -1331,6 +1429,7 @@ pub fn merkle_membership_proof_circuit<F: PrimeField, R: Rotatable + From<usize>
         w3_values[jive_output_idx] = F::ZERO;
         w4_values[jive_output_idx] = F::ZERO;
         wo_values[jive_output_idx] = current_hash;
+        // println!("current_hash: {:?}", current_hash);
         
         // Constraint: wo = w1 + w2
         q1[jive_output_idx] = F::ONE;
@@ -1338,17 +1437,16 @@ pub fn merkle_membership_proof_circuit<F: PrimeField, R: Rotatable + From<usize>
         qo[jive_output_idx] = F::ONE;
 
         permutation.copy((18, next_round_idx), (15, jive_output_idx));
-        permutation.copy((14, jive_output_idx), (18, usable_indices[gate_counter - 18]));
+        permutation.copy((14, jive_output_idx), (18, usable_indices[gate_counter - 17]));
         
         // Set up copy constraints for this Jive instance  
-        let jive_start = gate_counter - GATES_PER_JIVE;
-        for round in 1..=NUM_ROUNDS {
-            let current_idx = usable_indices[jive_start + round];
-            let next_idx = usable_indices[jive_start + round + 1];
+        // for round in 1..=NUM_ROUNDS {
+        //     let current_idx = usable_indices[jive_input_idx + round];
+        //     let next_idx = usable_indices[jive_input_idx + round + 1];
             
-            wo_values[current_idx] = w4_values[next_idx];
-            permutation.copy((18, current_idx), (17, next_idx)); // wo -> w4
-        }
+        //     wo_values[current_idx] = w4_values[next_idx];
+        //     permutation.copy((18, current_idx), (17, next_idx)); // wo -> w4
+        // }
     }
     
     // Final root verification gate
@@ -1362,17 +1460,19 @@ pub fn merkle_membership_proof_circuit<F: PrimeField, R: Rotatable + From<usize>
     // Constraint: current_hash - expected_root = 0
     q1[root_gate_idx] = F::ONE;
     q2[root_gate_idx] = -F::ONE;
+
+
     
     let circuit_info = PlonkishCircuitInfo {
         k: num_vars,
-        num_instances: vec![1], // Expected root as public input
+        num_instances: vec![],
         preprocess_polys: vec![
             q1, q2, q3, q4, qo, qm1, qm2, qc, qecc, qb,
             qprk1, qprk2, qprk3, qprk4
         ],
         num_witness_polys: vec![5],
         num_challenges: vec![0],
-        constraints: anemoi_hash_circuit_info::<F>(num_vars).constraints,
+        constraints: anemoi_hash_circuit_info_original::<F>(num_vars).constraints,
         lookups: Vec::new(),
         permutations: permutation.into_cycles(),
         max_degree: Some(7),
@@ -1380,7 +1480,7 @@ pub fn merkle_membership_proof_circuit<F: PrimeField, R: Rotatable + From<usize>
     
     let witness = vec![w1_values, w2_values, w3_values, w4_values, wo_values];
     
-    (circuit_info, MockCircuit::new(vec![vec![expected_root]], witness))
+    (circuit_info, MockCircuit::new(vec![], witness))
 }
 
 
@@ -1782,6 +1882,230 @@ impl<F: Field> ExpressionExt<F> for Expression<F> {
             }
         }
     }
+}
+
+/// Generate random Merkle membership proof test data using generic PrimeField
+/// Returns (leaf_value, merkle_path, expected_root)
+pub fn generate_random_merkle_proof<F: PrimeField>(
+    depth: usize,
+    mut rng: impl RngCore,
+) -> (F, Vec<MerkleProofNode<F>>, F) {
+    assert!(depth > 0, "Merkle tree depth must be positive");
+    assert!(depth <= 32, "Maximum practical depth is 32");
+    
+    // Generate padding constants for domain separation
+    let padding_constants = vec![F::ZERO; depth];
+    
+    // Generate random leaf value
+    let leaf_value = F::random(&mut rng);
+    
+    // Generate random path (position at each level from leaf to root)
+    let path_positions: Vec<MerklePosition> = (0..depth)
+        .map(|_| match rng.next_u32() % 3 {
+            0 => MerklePosition::Left,
+            1 => MerklePosition::Middle,
+            _ => MerklePosition::Right,
+        })
+        .collect();
+    
+    // Build merkle path from leaf to root
+    let mut current_hash = leaf_value;
+    let mut merkle_path = Vec::new();
+    
+    for (level, position) in path_positions.iter().enumerate() {
+        // Generate random siblings
+        let sibling1 = F::random(&mut rng);
+        let sibling2 = F::random(&mut rng);
+        
+        // Determine the three children based on current node's position
+        let (left_hash, middle_hash, right_hash) = match position {
+            MerklePosition::Left => (current_hash, sibling1, sibling2),
+            MerklePosition::Middle => (sibling1, current_hash, sibling2),
+            MerklePosition::Right => (sibling1, sibling2, current_hash),
+        };
+        
+        // Use level-specific padding constant for domain separation
+        let level_padding = padding_constants[level];
+        
+        // Compute parent hash using Anemoi Jive CRH
+        // This follows the 3-ary Merkle tree construction in Section 7.1
+        let parent_hash = {
+            let x = [left_hash, middle_hash];  // First 2 children
+            let y = [right_hash, level_padding]; // Third child + domain separation
+            anemoi_jive_hash(x, y)
+        };
+        
+        // Add to merkle path (this represents the current level)
+        merkle_path.push(MerkleProofNode {
+            position: position.clone(),
+            current_hash,  // Hash of current node (before going up to parent)
+            sibling1,      // First sibling
+            sibling2,      // Second sibling
+        });
+        
+        // Move up to parent for next iteration
+        current_hash = parent_hash;
+    }
+    
+    let expected_root = current_hash;
+    
+    // hash 计算没有问题
+    // println!("leaf_value: {:?}", leaf_value);
+    // println!("merkle_path: {:?}", merkle_path);
+    // println!("expected_root: {:?}", expected_root);
+
+    (leaf_value, merkle_path, expected_root)
+}
+
+
+
+/// Generate random Merkle membership proof circuit with proper generic implementation
+pub fn rand_merkle_membership_proof_circuit<F: PrimeField, R: Rotatable + From<usize>>(
+    depth: usize,
+    mut preprocess_rng: impl RngCore,  
+    mut witness_rng: impl RngCore,
+) -> (PlonkishCircuitInfo<F>, impl PlonkishCircuit<F>) {
+    // Generate test data using generic implementation
+    let (leaf_value, merkle_path, expected_root) = 
+        generate_random_merkle_proof(depth, &mut witness_rng);
+    
+    merkle_membership_proof_circuit::<F, R>(
+        leaf_value,
+        merkle_path,
+        expected_root,
+        preprocess_rng,
+        witness_rng,
+    )
+}
+
+
+/// Generic Anemoi Jive hash implementation using PrimeField
+/// This extracts the logic from merkle_membership_proof_circuit to make it reusable
+pub fn anemoi_jive_hash<F: PrimeField>(x: [F; 2], y: [F; 2]) -> F {
+    const NUM_ROUNDS: usize = 14;
+    
+    // Use real Anemoi constants (converted to generic field)
+    let generator = F::from(5u64);
+    let generator_inv = F::from_str_vartime("8755297148735710088898562298102910035419345760166413737479281674630323398247").unwrap_or(F::ZERO);
+    let generator_square_plus_one = F::from(26u64);
+    
+    // Real ROUND_KEYS_X and ROUND_KEYS_Y from AnemoiJive256
+    let round_keys_x_strings = [
+        ["37", "3751828524803055471428227881618625174556947755988347881191159153764975591158"],
+        ["13352247125433170118601974521234241686699252132838635793584252509352796067497", "21001839722121566863419881512791069124083822968210421491151340238400176843969"],
+        ["8959866518978803666083663798535154543742217570455117599799616562379347639707", "21722442537234642741320951134727484119993387379465291657407115605240150584902"],
+        ["3222831896788299315979047232033900743869692917288857580060845801753443388885", "5574110054747610058729632355948568604793546392090976147435879266833412620404"],
+        ["11437915391085696126542499325791687418764799800375359697173212755436799377493", "19347108854758320361854968987183753113398822331033233961719129079198795045322"],
+        ["14725846076402186085242174266911981167870784841637418717042290211288365715997", "17733032409684964025894538244134113560864261458948810209753406163729963104066"],
+        ["3625896738440557179745980526949999799504652863693655156640745358188128872126", "16641102106808059030810525726117803887885616319153331237086309361060282564245"],
+        ["463291105983501380924034618222275689104775247665779333141206049632645736639", "9245970744804222215259369270991414441925747897718226734085751033703871913242"],
+        ["17443852951621246980363565040958781632244400021738903729528591709655537559937", "18243401795478654990110719981452738859015913555820749188627866268359980949315"],
+        ["10761214205488034344706216213805155745482379858424137060372633423069634639664", "18200337361605220875540054729693479452916227111908726624753615870884702413869"],
+        ["1555059412520168878870894914371762771431462665764010129192912372490340449901", "5239065275003145843160321807696531775964858360555566589197008236687533209496"],
+        ["7985258549919592662769781896447490440621354347569971700598437766156081995625", "9376351072866485300578251734844671764089160611668390200194570180225759013543"],
+        ["9570976950823929161626934660575939683401710897903342799921775980893943353035", "6407880900662180043240104510114613236916437723065414158006054747177494383655"],
+        ["17962366505931708682321542383646032762931774796150042922562707170594807376009", "6245130621382842925623937534683990375669631277871468906941032622563934866013"],
+    ];
+    
+    let round_keys_y_strings = [
+        ["8755297148735710088898562298102910035419345760166413737479281674630323398284", "16133435893292874812888083849160666046321318009323051176910097996974633748758"],
+        ["5240474505904316858775051800099222288270827863409873986701694203345984265770", "16516377322346822856154252461095180562000423191949949242508439100972699801595"],
+        ["9012679925958717565787111885188464538194947839997341443807348023221726055342", "3513323292129390671339287145562649862242777741759770715956300048086055264273"],
+        ["21855834035835287540286238525800162342051591799629360593177152465113152235615", "5945179541709432313351711573896685950772105367183734375093638912196647730870"],
+        ["11227229470941648605622822052481187204980748641142847464327016901091886692935", "874490282529106871250179638055108647411431264552976943414386206857408624500"],
+        ["8277823808153992786803029269162651355418392229624501612473854822154276610437", "14911320361190879980016686915823914584756893340104182663424627943175208757859"],
+        ["20904607884889140694334069064199005451741168419308859136555043894134683701950", "15657880601171476575713502187548665287918791967520790431542060879010363657805"],
+        ["1902748146936068574869616392736208205391158973416079524055965306829204527070", "14311738005510898661766244714944477794557156116636816483240167459479765463026"],
+        ["14452570815461138929654743535323908350592751448372202277464697056225242868484", "18878429879072656191963192145256996413709289475622337294803628783509021017215"],
+        ["10548134661912479705005015677785100436776982856523954428067830720054853946467", "21613568037783775488400147863112554980555854603176833550688470336449256480025"],
+        ["17068729307795998980462158858164249718900656779672000551618940554342475266265", "2490802518193809975066473675670874471230712567215812226164489400543194289596"],
+        ["16199718037005378969178070485166950928725365516399196926532630556982133691321", "21217120779706380859547833993003263088538196273665904984368420139631145468592"],
+        ["19148564379197615165212957504107910110246052442686857059768087896511716255278", "19611778548789975299387421023085714500105803761017217976092023831374602045251"],
+        ["5497141763311860520411283868772341077137612389285480008601414949457218086902", "19294458970356379238521378434506704614768857764591229894917601756581488831876"],
+    ];
+    
+    // Convert string constants to F
+    let round_keys_x: Vec<[F; 2]> = round_keys_x_strings
+        .iter()
+        .map(|round_key| [
+            F::from_str_vartime(round_key[0]).unwrap_or(F::ZERO),
+            F::from_str_vartime(round_key[1]).unwrap_or(F::ZERO),
+        ])
+        .collect();
+    
+    let round_keys_y: Vec<[F; 2]> = round_keys_y_strings
+        .iter()
+        .map(|round_key| [
+            F::from_str_vartime(round_key[0]).unwrap_or(F::ZERO),
+            F::from_str_vartime(round_key[1]).unwrap_or(F::ZERO),
+        ])
+        .collect();
+    
+    // Alpha inverse values for S-box
+    let alpha_inv = [14981214993055009997u64, 6006880321387387405u64, 10624953561019755799u64, 2789598613442376532u64];
+    
+    // Set initial state
+    let mut current_x = x;
+    let mut current_y = y;
+    let sum_before_perm = current_x[0] + current_x[1] + current_y[0] + current_y[1];
+    
+    // Anemoi rounds - simulate the actual Anemoi permutation
+    for round in 0..NUM_ROUNDS {
+        // Apply Anemoi round transformation following the implementation
+        // Step 1: Add round constants
+        current_x[0] += round_keys_x[round][0];
+        current_x[1] += round_keys_x[round][1];
+        current_y[0] += round_keys_y[round][0];
+        current_y[1] += round_keys_y[round][1];
+        
+        // Step 2: MDS matrix application
+        let temp_x0 = current_x[0] + generator * current_x[1];
+        let temp_x1 = generator * current_x[0] + generator_square_plus_one * current_x[1];
+        current_x[0] = temp_x0;
+        current_x[1] = temp_x1;
+        
+        // MDS to y with word permutation (y[1], y[0] -> y[0], y[1])
+        let temp_y0 = current_y[1] + generator * current_y[0];
+        let temp_y1 = generator * current_y[1] + generator_square_plus_one * current_y[0];
+        current_y[0] = temp_y0;
+        current_y[1] = temp_y1;
+        
+        // Step 3: PHT transformation
+        for i in 0..2 {
+            current_y[i] += current_x[i];
+            current_x[i] += current_y[i];
+        }
+        
+        // Step 4: S-box application
+        for i in 0..2 {
+            current_x[i] -= generator * current_y[i].square();
+            current_y[i] -= current_x[i].pow(alpha_inv); // Use alpha_inv for power
+            current_x[i] += generator * current_y[i].square() + generator_inv;
+        }
+    }
+    
+    // Final transformations (post-rounds)
+    // Final MDS application
+    let temp_x0 = current_x[0] + generator * current_x[1];
+    let temp_x1 = generator * current_x[0] + generator_square_plus_one * current_x[1];
+    current_x[0] = temp_x0;
+    current_x[1] = temp_x1;
+    
+    let temp_y0 = current_y[1] + generator * current_y[0];
+    let temp_y1 = generator * current_y[1] + generator_square_plus_one * current_y[0];
+    current_y[0] = temp_y0;
+    current_y[1] = temp_y1;
+    
+    // Final PHT transformation
+    for i in 0..2 {
+        current_y[i] += current_x[i];
+        current_x[i] += current_y[i];
+    }
+    
+    let sum_after_perm = current_x[0] + current_x[1] + current_y[0] + current_y[1];
+    
+    // Jive output: sum of input and output of permutation
+    sum_before_perm + sum_after_perm
 }
 
 
