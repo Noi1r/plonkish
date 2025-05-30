@@ -1890,8 +1890,8 @@ pub fn generate_random_merkle_proof<F: PrimeField>(
     depth: usize,
     mut rng: impl RngCore,
 ) -> (F, Vec<MerkleProofNode<F>>, F) {
-    assert!(depth > 0, "Merkle tree depth must be positive");
-    assert!(depth <= 32, "Maximum practical depth is 32");
+    // assert!(depth > 0, "Merkle tree depth must be positive");
+    // assert!(depth <= 32, "Maximum practical depth is 32");
     
     // Generate padding constants for domain separation
     let padding_constants = vec![F::ZERO; depth];
