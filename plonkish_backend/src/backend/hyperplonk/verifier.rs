@@ -136,8 +136,8 @@ pub(crate) fn verify_sum_check_with_shift<F: PrimeField>(
         transcript,
     )?;
 
-    // println!("x_eval: {:?}", x_eval);
-    // println!("x: {:?}", x);
+    println!("x_eval: {:?}", x_eval);
+    println!("x: {:?}", x);
 
     let pcs_query = pcs_query(expression, instances.len());
 
@@ -147,17 +147,16 @@ pub(crate) fn verify_sum_check_with_shift<F: PrimeField>(
     }).collect_vec();
 
 
-    let evals: BTreeMap<Query, F> = instance_evals::<_, BinaryField>(num_vars, expression, instances, &x)
+    let evals: BTreeMap<Query, F> = instance_evals::<_, Lexical>(num_vars, expression, instances, &x)
         .into_iter()
         .chain(evals)
         .collect();
 
-    // TODO: 这里的求值有问题
-    // if evaluate::<F, Lexical>(expression, num_vars, &evals, challenges, &[y], &x) != x_eval {
-    //     return Err(Error::InvalidSnark(
-    //         "Unmatched between sum_check output and query evaluation".to_string(),
-    //     ));
-    // }
+    if evaluate::<F, Lexical>(expression, num_vars, &evals, challenges, &[y], &x) != x_eval {
+        return Err(Error::InvalidSnark(
+            "Unmatched between sum_check output and query evaluation".to_string(),
+        ));
+    }
 
 
     let evals = pcs_query

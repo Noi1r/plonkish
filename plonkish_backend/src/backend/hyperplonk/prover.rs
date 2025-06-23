@@ -440,17 +440,9 @@ pub(crate) fn prove_sum_check_with_shift<F: PrimeField>(
         transcript,
     )?;
 
-    // println!("x: {:?}", x);
-    // println!("polys_evaluate_for_rotation: {:?}", rotation_eval(&x, Rotation::cur(), &polys[0].evaluate_for_rotation(&x, Rotation::cur())));
-    // println!("polys_evaluate_for_rotation: {:?}", rotation_eval(&x, Rotation::cur(), &polys[18].evaluate_for_rotation(&x, Rotation(0))));
-    // println!("polys_evaluate_for_rotation: {:?}", rotation_eval(&x, Rotation::next(), &polys[18].evaluate_for_rotation(&x, Rotation(1))));
-    // 要动的只有这里，换成zeormorph的shift
-    // instance verifier可以自己计算
-
-    // 将evals转换成 Vec<Evaluation<<_ as Index<&crate::util::expression::Query>>::Output>>
-    // 只需要一个当前点，但是需要知道对应的rotation
-    // 由于底层sumcheck要用到，所以transcript中的东西不能改，最终读出来的eval他的值，但是bound的方式改一下 4.28 14:30
-    // 现在底层的求值方式也要换掉，值对应不上去 4.29 16:54
+    println!("x: {:?}", x);
+    println!("test: {:?}", test);
+    println!("evals: {:?}", evals);
     let pcs_query = pcs_query(expression, num_instance_poly);
 
     let timer = start_timer(|| format!("evals-{}", pcs_query.len()));

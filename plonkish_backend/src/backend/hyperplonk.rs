@@ -16,7 +16,7 @@ use crate::{
         arithmetic::{powers, PrimeField},
         chain, end_timer,
         expression::{
-            rotate::{BinaryField, Rotatable},
+            rotate::{BinaryField, Lexical, Rotatable},
             Expression,
         },
         start_timer,
@@ -128,7 +128,6 @@ where
         };
 
         // Round 0..n
-
         let mut witness_polys = Vec::with_capacity(pp.num_witness_polys.iter().sum());
         let mut witness_comms = Vec::with_capacity(witness_polys.len());
         let mut challenges = Vec::with_capacity(pp.num_challenges.iter().sum::<usize>() + 4);
@@ -320,7 +319,7 @@ where
                     transcript.common_field_element(instance)?;
                 }
             }
-            instance_polys::<_, BinaryField>(pp.num_vars, instances)
+            instance_polys::<_, Lexical>(pp.num_vars, instances)
         };
 
         // Round 0..n
@@ -357,7 +356,7 @@ where
         let lookup_compressed_polys = {
             let max_lookup_width = pp.lookups.iter().map(Vec::len).max().unwrap_or_default();
             let betas = powers(beta).take(max_lookup_width).collect_vec();
-            lookup_compressed_polys::<_, BinaryField>(&pp.lookups, &polys, &challenges, &betas)
+            lookup_compressed_polys::<_, Lexical>(&pp.lookups, &polys, &challenges, &betas)
         };
         end_timer(timer);
         let timer = start_timer(|| format!("lookup_m_polys-{}", pp.lookups.len()));
@@ -375,7 +374,7 @@ where
         end_timer(timer);
 
         let timer = start_timer(|| format!("permutation_z_polys-{}", pp.permutation_polys.len()));
-        let permutation_z_polys = permutation_z_polys::<_, BinaryField>(
+        let permutation_z_polys = permutation_z_polys::<_, Lexical>(
             pp.num_permutation_z_polys,
             &pp.permutation_polys,
             &polys,
@@ -505,7 +504,7 @@ where
     }
     impl<Pcs> WitnessEncoding for HyperPlonk<Pcs> {
         fn row_mapping(k: usize) -> Vec<usize> {
-            BinaryField::new(k).usable_indices()
+            Lexical::new(k).usable_indices()
         }
 }
 
@@ -514,7 +513,7 @@ mod test {
     use crate::{
         backend::{
             hyperplonk::{
-                util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit, rand_anemoi_hash_circuit_with_flatten, rand_jive_crh_circuit, rand_merkle_membership_proof_circuit},
+                util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit,rand_index_test_circuit , rand_anemoi_hash_circuit_with_flatten, rand_jive_crh_circuit, rand_merkle_membership_proof_circuit},
                 HyperPlonk,
             },
             test::run_plonkish_backend,
@@ -527,7 +526,7 @@ mod test {
             univariate::UnivariateKzg,
         },
         util::{
-            code::BrakedownSpec6, expression::rotate::BinaryField, hash::Keccak256,
+            code::BrakedownSpec6, expression::rotate::{BinaryField, Lexical}, hash::Keccak256,
             test::seeded_std_rng, transcript::Keccak256Transcript,
         },
     };
@@ -570,7 +569,14 @@ mod test {
                 #[test]
                 fn [<merkle_membership_proof_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        rand_merkle_membership_proof_circuit::<_, BinaryField>(160, seeded_std_rng(), seeded_std_rng())
+                        rand_merkle_membership_proof_circuit::<_, Lexical>(20, seeded_std_rng(), seeded_std_rng())
+                    });
+                }
+
+                #[test]
+                fn [<index_test_ $suffix>]() {
+                    run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
+                        rand_index_test_circuit::<_, Lexical>(num_vars, seeded_std_rng(), seeded_std_rng())
                     });
                 }
             }
