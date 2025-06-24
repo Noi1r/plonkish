@@ -432,18 +432,17 @@ pub(crate) fn prove_sum_check_with_shift<F: PrimeField>(
     let num_vars = polys[0].num_vars();
     let ys = [y];
     let virtual_poly = VirtualPolynomial::new(expression, polys.to_vec(), &challenges, &ys);
-    let (test, x, evals) = ClassicSumCheck::<EvaluationsProver<_>, Lexical>::prove(
+    let (_, x, evals) = ClassicSumCheck::<EvaluationsProver<_>, Lexical>::prove(
         &(),
         num_vars,
         virtual_poly,
         sum,
         transcript,
     )?;
+    // println!("evals: {:?}", evals);
 
-    println!("x: {:?}", x);
-    println!("test: {:?}", test);
-    println!("evals: {:?}", evals);
     let pcs_query = pcs_query(expression, num_instance_poly);
+    // println!("pcs_query: {:?}", pcs_query);
 
     let timer = start_timer(|| format!("evals-{}", pcs_query.len()));
 

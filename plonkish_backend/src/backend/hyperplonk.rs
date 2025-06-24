@@ -310,7 +310,7 @@ where
         transcript: &mut impl TranscriptWrite<Pcs::CommitmentChunk, F>,
         _: impl RngCore,
     ) -> Result<(), Error> {
-        println!("circuit.instances(): {:?}", circuit.instances());
+        // println!("circuit.instances(): {:?}", circuit.instances());
         let instance_polys = {
             let instances = circuit.instances();
             for (num_instances, instances) in pp.num_instances.iter().zip_eq(instances) {
@@ -366,7 +366,6 @@ where
         let lookup_m_comms = Pcs::batch_commit_and_write(&pp.pcs, &lookup_m_polys, transcript)?;
 
         // Round n+1
-
         let gamma = transcript.squeeze_challenge();
 
         let timer = start_timer(|| format!("lookup_h_polys-{}", pp.lookups.len()));
@@ -389,7 +388,6 @@ where
             Pcs::batch_commit_and_write(&pp.pcs, lookup_h_permutation_z_polys.clone(), transcript)?;
 
         // Round n+2
-
         let alpha = transcript.squeeze_challenge();
         let y = transcript.squeeze_challenges(pp.num_vars);
 
@@ -423,6 +421,7 @@ where
         ]
         .collect_vec();
         let timer = start_timer(|| format!("pcs_batch_open-{}", evals.len()));
+        // println!("points: {:?}", points);
         Pcs::batch_open_for_shift(&pp.pcs, polys, comms, &points, &evals, transcript)?;
         end_timer(timer);
 
@@ -541,28 +540,29 @@ mod test {
                 #[test]
                 fn [<vanilla_plonk_w_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        rand_vanilla_plonk_circuit::<_, BinaryField>(num_vars, seeded_std_rng(), seeded_std_rng())
+                        rand_vanilla_plonk_circuit::<_, Lexical
+                        >(num_vars, seeded_std_rng(), seeded_std_rng())
                     });
                 }
 
                 #[test]
                 fn [<vanilla_plonk_w_lookup_w_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        rand_vanilla_plonk_w_lookup_circuit::<_, BinaryField>(num_vars, seeded_std_rng(), seeded_std_rng())
+                        rand_vanilla_plonk_w_lookup_circuit::<_, Lexical>(num_vars, seeded_std_rng(), seeded_std_rng())
                     });
                 }
 
                 #[test]
                 fn [<anemoi_hash_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        rand_anemoi_hash_circuit_with_flatten::<_, BinaryField>(seeded_std_rng(), seeded_std_rng())
+                        rand_anemoi_hash_circuit_with_flatten::<_, Lexical>(seeded_std_rng(), seeded_std_rng())
                     });
                 }
 
                 #[test]
                 fn [<jive_crh_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        rand_jive_crh_circuit::<_, BinaryField>(<_>::from(1u64), <_>::from(2u64), <_>::from(3u64), <_>::from(4u64), seeded_std_rng(), seeded_std_rng())
+                        rand_jive_crh_circuit::<_, Lexical>(<_>::from(1u64), <_>::from(2u64), <_>::from(3u64), <_>::from(4u64), seeded_std_rng(), seeded_std_rng())
                     });
                 }
 

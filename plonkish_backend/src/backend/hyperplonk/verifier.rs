@@ -136,8 +136,8 @@ pub(crate) fn verify_sum_check_with_shift<F: PrimeField>(
         transcript,
     )?;
 
-    println!("x_eval: {:?}", x_eval);
-    println!("x: {:?}", x);
+    // println!("x_eval: {:?}", x_eval);
+    // println!("x: {:?}", x);
 
     let pcs_query = pcs_query(expression, instances.len());
 

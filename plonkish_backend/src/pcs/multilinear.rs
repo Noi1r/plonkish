@@ -277,9 +277,6 @@ mod additive {
                     .count(),
                 points.len()
             );
-            for eval in evals {
-                let (poly, rotation) = (&polys[eval.poly()], eval.rotation());
-            }
         }
 
         // --- Part 1: Handle Rotation::cur() evaluations ---
@@ -394,9 +391,6 @@ mod additive {
         for (rotation, rotation_evals) in evals_by_rotation {
                 // Extract necessary info for this rotation group
                 let polys_rotated: Vec<&MultilinearPolynomial<F>> = rotation_evals.iter().map(|eval| polys[eval.poly()]).collect();
-                // println!("=======================================================");
-                // println!("polys_rotated: {:?}", polys_rotated);
-                // println!("=======================================================");
                 let comms_rotated: Vec<&Pcs::Commitment> = rotation_evals.iter().map(|eval| comms[eval.poly()]).collect();
                 // Get references to the values
                 let values_rotated: Vec<&F> = rotation_evals.iter().map(|eval| eval.value()).collect();
@@ -451,15 +445,6 @@ mod additive {
                 let mut merged_poly_owned = merged_poly_cow.into_owned(); // Get owned version
                 if merged_scalar != F::ONE {
                     merged_poly_owned *= &merged_scalar; // Apply final scalar
-                }
-
-                // println!("merged_poly_owned: {:?}", merged_poly_owned.evals());
-                // println!("=======================================================");
-                if merged_poly_owned.is_empty() {
-                    // This case should ideally not happen if polys_rotated wasn't empty,
-                    // but handle defensively.
-                    println!("Warning: Merged polynomial is unexpectedly empty for rotation {:?}", rotation);
-                    continue;
                 }
 
                 // Compute the combined evaluation value for the merged polynomial
@@ -617,10 +602,6 @@ mod additive {
                    rotation_evals.iter().map(|eval| eval.value()), // 输入 &F
                    eq_xt_rotated.evals()[..num_rotated].iter(), // 需要 F
                );
-                // 注意：如果 prover 在 `prove_shifted_evaluation` 前对 `value` 进行了缩放（如乘以 merged_scalar），
-                // verifier 在这里计算 merged_value 时也需要做同样的操作，但这比较困难，
-                // 因为 merged_scalar 不容易获得。更稳妥的做法是 prover 传入未缩放的 poly 和 value。
-                // 假设 prover 传入的是最终（可能已缩放）的 value。
 
                // 计算该分组的合并承诺
                let merged_comm_rotated = {
@@ -633,7 +614,7 @@ mod additive {
                Pcs::verify_shifted_evaluation(
                     vp,
                     &merged_comm_rotated, // 对合并后的 f 的承诺
-                    &points[0],             // 求值点 u
+                    &points[0],    // 求值点 u
                     &merged_value,       // 合并后的声称值 v = f_d(u)
                     &rotation,           // 当前的移位信息
                     transcript,          // 包含证明数据的 transcript

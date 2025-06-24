@@ -61,19 +61,16 @@ pub fn rand_index_test_circuit<F: PrimeField, R: Rotatable + From<usize>>(
         w_values[next_idx] = F::from((i + 1) as u64);
         
         // 激活约束
-        q_seq[current_idx] = F::ONE;
+        if i != 0 {
+            q_seq[current_idx] = F::ONE;
+        }
     }
     
-    // // normal order
-    // for i in 0..size {
-    //     w_values[i] = F::from(i as u64);
-    //     q_seq[i] = F::ONE;
-    // }
 
     // 约束：q_seq * (w_next - w_current - 1) = 0
     let constraint: Expression<F> = Expression::Polynomial::<F>(Query::new(0, Rotation::cur())) *
-        (Expression::Polynomial::<F>(Query::new(1, Rotation::next())) -
-         Expression::Polynomial::<F>(Query::new(1, Rotation::cur())) -
+        (Expression::Polynomial::<F>(Query::new(1, Rotation::cur())) -
+         Expression::Polynomial::<F>(Query::new(1, Rotation::prev())) -
          Expression::one());
     
     let circuit_info = PlonkishCircuitInfo {
