@@ -546,10 +546,11 @@ where
         // 使用 MSM 计算重构的承诺 C
         let reconstructed_commitment_c: M::G1Affine = variable_base_msm(&scalars, &bases).into();
 
-
         // 5. 从 transcript 读取最终的单变量 KZG 打开证明 pi_d (由 prover 的 UnivariateKzg::open 生成)
         let pi_d = transcript.read_commitment()?;
 
+        // println!("vp.s_g2(): {:?}", vp.s_g2());
+        // println!("vp.s_offset_g2(): {:?}", vp.s_offset_g2);
         // 6. 执行最终的配对检查 (验证 C 在点 x 打开为 0，使用证明 pi_d)
         M::pairings_product_is_identity(&[
             (&reconstructed_commitment_c, &(-vp.s_offset_g2).into()),
@@ -561,6 +562,13 @@ where
                 "Invalid Zeromorph KZG shifted open for rotation {}", rotation.0))} // 使用 rotation.0 获取带符号距
         )
 
+        // TODO: add relation between p_ad and x_n_p_ad
+        // M::pairings_product_is_identity(&[
+        //     (&p_ad_comm.0, &(-vp.s_offset_g2).into()),
+        //     (&pi_d, &(vp.s_g2() - (vp.g2() * x).into()).to_affine().into()),
+        // ])
+        // .then_some(())
+        // .ok_or_else(|| Error::InvalidPcsOpen("Invalid Zeromorph KZG open".to_string()))
     } 
 
 
