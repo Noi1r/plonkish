@@ -68,7 +68,8 @@ pub fn rand_index_test_circuit<F: PrimeField, R: Rotatable + From<usize>>(
     let constraint: Expression<F> = Expression::Polynomial::<F>(Query::new(0, Rotation::cur()))
         * (Expression::Polynomial::<F>(Query::new(1, Rotation::next()))
             - Expression::Polynomial::<F>(Query::new(1, Rotation::prev()))
-            - Expression::one() - Expression::one());
+            - Expression::one()
+            - Expression::one());
 
     let circuit_info = PlonkishCircuitInfo {
         k: num_vars,

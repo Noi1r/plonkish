@@ -344,6 +344,45 @@ where
             transcript,
         )?;
 
+        let p_ad = if signed_d > 0 {
+            let p_ad = crate::poly::univariate::UnivariatePolynomial::monomial(
+                poly.evals()[..abs_d].to_vec(),
+            );
+            // X^d
+
+            crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
+                &pp.commit_pp,
+                &p_ad,
+                transcript,
+            )?;
+            p_ad
+        } else {
+            let p_ad = crate::poly::univariate::UnivariatePolynomial::monomial(
+                poly.evals()[n_evals - abs_d..].to_vec(),
+            );
+            // X^d
+
+            let x_d_prime = {
+                let mut coeffs = vec![M::Scalar::ZERO; abs_d + 1];
+                if let Some(coeff) = coeffs.get_mut(abs_d) {
+                    *coeff = M::Scalar::ONE;
+                } else if abs_d == 0 {
+                    coeffs = vec![M::Scalar::ONE];
+                } // X^0 = 1
+                crate::poly::univariate::UnivariatePolynomial::monomial(coeffs)
+            };
+
+            // println!("x_d_prime.len(): {:?}", x_d_prime.coeffs().len());
+
+            let x_d_prime_p_ad = &x_d_prime * &p_ad;
+            crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
+                &pp.commit_pp,
+                &x_d_prime_p_ad,
+                transcript,
+            )?;
+            x_d_prime_p_ad
+        };
+
         // --- Compute Scalars and Construct Final Check Polynomial F_d ---
         let x = transcript.squeeze_challenge();
         let z = transcript.squeeze_challenge();
@@ -381,16 +420,16 @@ where
             // 左移 d = abs_d
             // P_Ad: 使用 f 的前 d 个系数构造
             //  println!("---poly.evals()[..abs_d].to_vec(): {:?}", poly.evals()[..abs_d].to_vec());
-            let p_ad = crate::poly::univariate::UnivariatePolynomial::monomial(
-                poly.evals()[..abs_d].to_vec(),
-            );
-            // X^d
+            // let p_ad = crate::poly::univariate::UnivariatePolynomial::monomial(
+            //     poly.evals()[..abs_d].to_vec(),
+            // );
+            // // X^d
 
-            crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
-                &pp.commit_pp,
-                &p_ad,
-                transcript,
-            )?;
+            // crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
+            //     &pp.commit_pp,
+            //     &p_ad,
+            //     transcript,
+            // )?;
 
             let x_d = {
                 let mut coeffs = vec![M::Scalar::ZERO; abs_d + 1];
@@ -424,33 +463,31 @@ where
         } else {
             // 右移 d' = abs_d = -signed_d
             // P_Ad: 使用 f 的后 d' 个系数构造
-            let p_ad = crate::poly::univariate::UnivariatePolynomial::monomial(
-                poly.evals()[n_evals - abs_d..].to_vec(),
-            );
+            // let p_ad = crate::poly::univariate::UnivariatePolynomial::monomial(
+            //     poly.evals()[n_evals - abs_d..].to_vec(),
+            // );
 
-            // X^{d'}
-            let x_d_prime = {
-                let mut coeffs = vec![M::Scalar::ZERO; abs_d + 1];
-                if let Some(coeff) = coeffs.get_mut(abs_d) {
-                    *coeff = M::Scalar::ONE;
-                } else if abs_d == 0 {
-                    coeffs = vec![M::Scalar::ONE];
-                } // X^0 = 1
-                crate::poly::univariate::UnivariatePolynomial::monomial(coeffs)
-            };
+            // // X^{d'}
+            // let x_d_prime = {
+            //     let mut coeffs = vec![M::Scalar::ZERO; abs_d + 1];
+            //     if let Some(coeff) = coeffs.get_mut(abs_d) {
+            //         *coeff = M::Scalar::ONE;
+            //     } else if abs_d == 0 {
+            //         coeffs = vec![M::Scalar::ONE];
+            //     } // X^0 = 1
+            //     crate::poly::univariate::UnivariatePolynomial::monomial(coeffs)
+            // };
 
-            // println!("x_d_prime.len(): {:?}", x_d_prime.coeffs().len());
+            // // println!("x_d_prime.len(): {:?}", x_d_prime.coeffs().len());
 
-
-
-            let x_d_prime_p_ad = &x_d_prime * &p_ad;
-            crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
-                &pp.commit_pp,
-                &x_d_prime_p_ad,
-                transcript,
-            )?;
+            // let x_d_prime_p_ad = &x_d_prime * &p_ad;
+            // crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
+            //     &pp.commit_pp,
+            //     &x_d_prime_p_ad,
+            //     transcript,
+            // )?;
             // let x_n_p_ad = &x_n * &p_ad;
-            let x_n_p_ad = &x_d_prime_p_ad * x.pow_vartime([(n_evals-abs_d) as u64]);
+            let x_n_p_ad = &p_ad * x.pow_vartime([(n_evals - abs_d) as u64]);
 
             // crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
             //     &pp.commit_pp,
@@ -460,7 +497,7 @@ where
 
             // Term1 = X^d' * f_uni - X^d' * P_Ad + P_Ad * X^N
             let mut term1 = f_uni * x.pow_vartime([abs_d as u64]);
-            term1 -= &x_d_prime_p_ad;
+            term1 -= &p_ad;
             term1 += &x_n_p_ad;
 
             // F_d = z * Term1 + q_d_hat + term3_inner
@@ -471,6 +508,7 @@ where
         };
 
         // println!("F_d: {:?}", F_d.evaluate(&(x)));
+
         let comm = if cfg!(feature = "sanity-check") {
             assert_eq!(F_d.evaluate(&x), M::Scalar::ZERO);
             UnivariateKzg::commit_monomial(&pp.open_pp, F_d.coeffs())
@@ -544,13 +582,12 @@ where
         let q_d_hat_comm =
             crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
 
+        let p_ad_comm =
+            crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
         // 3. Squeeze challenges x, z, 计算验证所需的标量
         let x = transcript.squeeze_challenge();
         let z = transcript.squeeze_challenge();
         let (eval_scalar, q_scalars) = eval_and_quotient_scalars_shift(y, x, z, point, rotation);
-
-        let p_ad_comm =
-            crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
 
         // let x_n_p_ad_comm =
         //     crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
@@ -561,8 +598,16 @@ where
         // println!("point.len(): {:?}", point.len());
         //    C 对应于 f_check = q_d_hat + z*f + eval_scalar*v + sum(q_scalar_k * q_{d,k})
         if rotation.0 > 0 {
-            scalars =
-                chain![[M::Scalar::ONE, z, -z+z * x.pow_vartime([2_usize.pow(point.len() as u32) as u64]), eval_scalar * value], q_scalars].collect_vec();
+            scalars = chain![
+                [
+                    M::Scalar::ONE,
+                    z,
+                    -z + z * x.pow_vartime([2_usize.pow(point.len() as u32) as u64]),
+                    eval_scalar * value
+                ],
+                q_scalars
+            ]
+            .collect_vec();
             bases = chain![
                 [
                     q_d_hat_comm.0,
@@ -574,13 +619,14 @@ where
                 q_comms_d.iter().map(|c| c.0) // Use .0 for quotient comms
             ]
             .collect_vec();
-
         } else {
             scalars = chain![
                 [
                     M::Scalar::ONE,
                     z * x.pow_vartime([rotation.distance() as u64]),
-                    -z+z * x.pow_vartime([2_usize.pow(point.len() as u32) as u64 - rotation.distance() as u64]),
+                    -z + z * x.pow_vartime([
+                        2_usize.pow(point.len() as u32) as u64 - rotation.distance() as u64
+                    ]),
                     eval_scalar * value
                 ],
                 q_scalars
