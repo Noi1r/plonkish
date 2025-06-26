@@ -7,243 +7,809 @@ pub struct AnemoiJive256;
 impl AnemoiJive<Fr, 2usize, 14usize> for AnemoiJive256 {
     const ALPHA: u32 = 5u32;
     const GENERATOR: Fr = Fr::from_raw([0x05, 0x00, 0x00, 0x00]);
-    const GENERATOR_INV: Fr = Fr::from_raw([0xe7f3fbd4c6666667, 0xa9ae5ce9ca4a2d06, 0x49b9b57c33cd568b, 0x135b52945a13d9aa]);
+    const GENERATOR_INV: Fr = Fr::from_raw([
+        0xe7f3fbd4c6666667,
+        0xa9ae5ce9ca4a2d06,
+        0x49b9b57c33cd568b,
+        0x135b52945a13d9aa,
+    ]);
     const GENERATOR_SQUARE_PLUS_ONE: Fr = Fr::from_raw([0x1a, 0x0, 0x0, 0x0]);
     const ROUND_KEYS_X: [[Fr; 2]; 14] = [
         [
             Fr::from_raw([0x25, 0x0, 0x0, 0x0]),
-            Fr::from_raw([0xcc1c0a3fed453ef6, 0x11f6e0d3b5743494, 0x132a7e3a5fcf8ed5, 0x84b75ae67bdd05d]),
+            Fr::from_raw([
+                0xcc1c0a3fed453ef6,
+                0x11f6e0d3b5743494,
+                0x132a7e3a5fcf8ed5,
+                0x84b75ae67bdd05d,
+            ]),
         ],
         [
-            Fr::from_raw([0x21ff8ece689f96a9, 0x879e1c79891ea5a, 0x398a47d33b9c614f, 0x1d851aa3a1ad5cfa]),
-            Fr::from_raw([0x5bac444d8358ecc1, 0xef126d839c6ddff4, 0x2ccfb7ecedc70ede, 0x2e6e9ebabafe968e]),
+            Fr::from_raw([
+                0x21ff8ece689f96a9,
+                0x879e1c79891ea5a,
+                0x398a47d33b9c614f,
+                0x1d851aa3a1ad5cfa,
+            ]),
+            Fr::from_raw([
+                0x5bac444d8358ecc1,
+                0xef126d839c6ddff4,
+                0x2ccfb7ecedc70ede,
+                0x2e6e9ebabafe968e,
+            ]),
         ],
         [
-            Fr::from_raw([0x53ecd2b2695ebd9b, 0x12d6128ac67cd2dd, 0x5223e28f2b7aaa5d, 0x13cf1ad003eda20a]),
-            Fr::from_raw([0x743d84041cf56e46, 0x96671cd1e4a4988b, 0xaf97373fee8731f4, 0x3006777eabaf986f]),
+            Fr::from_raw([
+                0x53ecd2b2695ebd9b,
+                0x12d6128ac67cd2dd,
+                0x5223e28f2b7aaa5d,
+                0x13cf1ad003eda20a,
+            ]),
+            Fr::from_raw([
+                0x743d84041cf56e46,
+                0x96671cd1e4a4988b,
+                0xaf97373fee8731f4,
+                0x3006777eabaf986f,
+            ]),
         ],
         [
-            Fr::from_raw([0x304134927f554dd5, 0xe511df646085706, 0x4b5d9887e7b2955e, 0x7200ee6f1261ae2]),
-            Fr::from_raw([0x4f290c6069238074, 0xfccf19a8f9effa37, 0x7d0e1cd9d551667, 0xc52d5a0ff2d423e]),
+            Fr::from_raw([
+                0x304134927f554dd5,
+                0xe511df646085706,
+                0x4b5d9887e7b2955e,
+                0x7200ee6f1261ae2,
+            ]),
+            Fr::from_raw([
+                0x4f290c6069238074,
+                0xfccf19a8f9effa37,
+                0x7d0e1cd9d551667,
+                0xc52d5a0ff2d423e,
+            ]),
         ],
         [
-            Fr::from_raw([0x87537a8729a9c055, 0xa8f85b2fb9ed269c, 0x804dc3212af703bb, 0x1949a1753252aa42]),
-            Fr::from_raw([0x9a7384b2f98e19ca, 0xea4ef96c0db21fb1, 0x3ff011842bb2f18, 0x2ac613579ef26869]),
+            Fr::from_raw([
+                0x87537a8729a9c055,
+                0xa8f85b2fb9ed269c,
+                0x804dc3212af703bb,
+                0x1949a1753252aa42,
+            ]),
+            Fr::from_raw([
+                0x9a7384b2f98e19ca,
+                0xea4ef96c0db21fb1,
+                0x3ff011842bb2f18,
+                0x2ac613579ef26869,
+            ]),
         ],
         [
-            Fr::from_raw([0xe884e0e57760d21d, 0xb80787320bf51735, 0xe9469e78383500b5, 0x208e8894681bab57]),
-            Fr::from_raw([0xf53d726fd4dd3742, 0x8ffb2747feb2c423, 0xed44aba46b3747d2, 0x27348a68d7eaeec4]),
+            Fr::from_raw([
+                0xe884e0e57760d21d,
+                0xb80787320bf51735,
+                0xe9469e78383500b5,
+                0x208e8894681bab57,
+            ]),
+            Fr::from_raw([
+                0xf53d726fd4dd3742,
+                0x8ffb2747feb2c423,
+                0xed44aba46b3747d2,
+                0x27348a68d7eaeec4,
+            ]),
         ],
         [
-            Fr::from_raw([0x3fee0d0d8c59a6be, 0x7846c47f5ae31f11, 0xaa9b666fbaaeb816, 0x8042f50d6fde723]),
-            Fr::from_raw([0x9fe85933b232fe95, 0xb4cbedbc27272443, 0xca894b8ea8e103f9, 0x24ca87aee34d5269]),
+            Fr::from_raw([
+                0x3fee0d0d8c59a6be,
+                0x7846c47f5ae31f11,
+                0xaa9b666fbaaeb816,
+                0x8042f50d6fde723,
+            ]),
+            Fr::from_raw([
+                0x9fe85933b232fe95,
+                0xb4cbedbc27272443,
+                0xca894b8ea8e103f9,
+                0x24ca87aee34d5269,
+            ]),
         ],
         [
-            Fr::from_raw([0x1251aafbb326e8bf, 0x218ffdbed735817b, 0x21d8db96bf4edb26, 0x10636a632dfd373]),
-            Fr::from_raw([0x2b79d00aa2959d1a, 0xb7f86a338f64c3ff, 0xd3a8bc28ace927c1, 0x147108b38e9a076c]),
+            Fr::from_raw([
+                0x1251aafbb326e8bf,
+                0x218ffdbed735817b,
+                0x21d8db96bf4edb26,
+                0x10636a632dfd373,
+            ]),
+            Fr::from_raw([
+                0x2b79d00aa2959d1a,
+                0xb7f86a338f64c3ff,
+                0xd3a8bc28ace927c1,
+                0x147108b38e9a076c,
+            ]),
         ],
         [
-            Fr::from_raw([0xcbbba0ab1f5c2981, 0xd3a93900dcaccaff, 0x5ffd20b0f76b16c4, 0x2690def299310b1e]),
-            Fr::from_raw([0xa268db18393f1f43, 0x8950809315c25bfe, 0xa59bcd12828f5df8, 0x285566457e15615e]),
+            Fr::from_raw([
+                0xcbbba0ab1f5c2981,
+                0xd3a93900dcaccaff,
+                0x5ffd20b0f76b16c4,
+                0x2690def299310b1e,
+            ]),
+            Fr::from_raw([
+                0xa268db18393f1f43,
+                0x8950809315c25bfe,
+                0xa59bcd12828f5df8,
+                0x285566457e15615e,
+            ]),
         ],
         [
-            Fr::from_raw([0x382d33f055ec3730, 0xa0c71c421ec35cb, 0xb206471cbd9c861a, 0x17caa1a332d82688]),
-            Fr::from_raw([0xe93b7ba9b755642d, 0x8a85e1c46fd63c72, 0xd7cc5485b8d4a7c3, 0x283d06a0dcce373b]),
+            Fr::from_raw([
+                0x382d33f055ec3730,
+                0xa0c71c421ec35cb,
+                0xb206471cbd9c861a,
+                0x17caa1a332d82688,
+            ]),
+            Fr::from_raw([
+                0xe93b7ba9b755642d,
+                0x8a85e1c46fd63c72,
+                0xd7cc5485b8d4a7c3,
+                0x283d06a0dcce373b,
+            ]),
         ],
         [
-            Fr::from_raw([0x36dadd6dd134be6d, 0x47c91f5adc2f36ad, 0x89e5f4964d1d1729, 0x37021e760444640]),
-            Fr::from_raw([0xb3937d5369ef798, 0xff650b69594d7eb2, 0xbf3569686706387b, 0xb9534b36b40040a]),
+            Fr::from_raw([
+                0x36dadd6dd134be6d,
+                0x47c91f5adc2f36ad,
+                0x89e5f4964d1d1729,
+                0x37021e760444640,
+            ]),
+            Fr::from_raw([
+                0xb3937d5369ef798,
+                0xff650b69594d7eb2,
+                0xbf3569686706387b,
+                0xb9534b36b40040a,
+            ]),
         ],
         [
-            Fr::from_raw([0x8bcd318fb80c9f69, 0xe5f9288acca09284, 0xe84fcc06d71704c2, 0x11a77f05482b4d24]),
-            Fr::from_raw([0x5e1e027723196aa7, 0x22673b9c039c8cd4, 0x847aabc4dbbf9880, 0x14bad39eb46e6884]),
+            Fr::from_raw([
+                0x8bcd318fb80c9f69,
+                0xe5f9288acca09284,
+                0xe84fcc06d71704c2,
+                0x11a77f05482b4d24,
+            ]),
+            Fr::from_raw([
+                0x5e1e027723196aa7,
+                0x22673b9c039c8cd4,
+                0x847aabc4dbbf9880,
+                0x14bad39eb46e6884,
+            ]),
         ],
         [
-            Fr::from_raw([0x19b056cbba1fcecb, 0x2aca44fc52ec14b5, 0x50b3d6d0c053f120, 0x1528fb21bda777a2]),
-            Fr::from_raw([0xef156c3fec1a0c27, 0x732cf9b721c27a05, 0xac6411da169c8bef, 0xe2abb687eff7fee]),
+            Fr::from_raw([
+                0x19b056cbba1fcecb,
+                0x2aca44fc52ec14b5,
+                0x50b3d6d0c053f120,
+                0x1528fb21bda777a2,
+            ]),
+            Fr::from_raw([
+                0xef156c3fec1a0c27,
+                0x732cf9b721c27a05,
+                0xac6411da169c8bef,
+                0xe2abb687eff7fee,
+            ]),
         ],
         [
-            Fr::from_raw([0xb7b5486962e06889, 0x518bece8ead6a6b1, 0x79ac63999d0bed50, 0x27b656d33f3dc3b8]),
-            Fr::from_raw([0x445336c1a7d40a5d, 0xee40989dc3d02a21, 0x395982f6aa2c277, 0xdce9e612075b3af]),
+            Fr::from_raw([
+                0xb7b5486962e06889,
+                0x518bece8ead6a6b1,
+                0x79ac63999d0bed50,
+                0x27b656d33f3dc3b8,
+            ]),
+            Fr::from_raw([
+                0x445336c1a7d40a5d,
+                0xee40989dc3d02a21,
+                0x395982f6aa2c277,
+                0xdce9e612075b3af,
+            ]),
         ],
     ];
     const ROUND_KEYS_Y: [[Fr; 2]; 14] = [
         [
-            Fr::from_raw([0xe7f3fbd4c666668c, 0xa9ae5ce9ca4a2d06, 0x49b9b57c33cd568b, 0x135b52945a13d9aa]),
-            Fr::from_raw([0x70ad4c48cc938916, 0xb41c84107f0f2c8e, 0xdf12776f82a50c0a, 0x23ab337c78a29fa1]),
+            Fr::from_raw([
+                0xe7f3fbd4c666668c,
+                0xa9ae5ce9ca4a2d06,
+                0x49b9b57c33cd568b,
+                0x135b52945a13d9aa,
+            ]),
+            Fr::from_raw([
+                0x70ad4c48cc938916,
+                0xb41c84107f0f2c8e,
+                0xdf12776f82a50c0a,
+                0x23ab337c78a29fa1,
+            ]),
         ],
         [
-            Fr::from_raw([0x971568d5215b9e2a, 0xd4ca3e19ff98c7fc, 0xdf15f55c26da154b, 0xb9600e2b2bdd62a]),
-            Fr::from_raw([0x8d5f648854fcd7fb, 0xb3da102902c58889, 0x5489a92ec80ce985, 0x2483f03382e00559]),
+            Fr::from_raw([
+                0x971568d5215b9e2a,
+                0xd4ca3e19ff98c7fc,
+                0xdf15f55c26da154b,
+                0xb9600e2b2bdd62a,
+            ]),
+            Fr::from_raw([
+                0x8d5f648854fcd7fb,
+                0xb3da102902c58889,
+                0x5489a92ec80ce985,
+                0x2483f03382e00559,
+            ]),
         ],
         [
-            Fr::from_raw([0xd0d80c9460ad8bae, 0x6f879e613101b95c, 0x3b421659e9cf5c05, 0x13ecfefe27ca5849]),
-            Fr::from_raw([0x69e40e863d2c2011, 0xc35c06b2d4c0d96c, 0x6293690d1a62b1e9, 0x7c47873a52ba41f]),
+            Fr::from_raw([
+                0xd0d80c9460ad8bae,
+                0x6f879e613101b95c,
+                0x3b421659e9cf5c05,
+                0x13ecfefe27ca5849,
+            ]),
+            Fr::from_raw([
+                0x69e40e863d2c2011,
+                0xc35c06b2d4c0d96c,
+                0x6293690d1a62b1e9,
+                0x7c47873a52ba41f,
+            ]),
         ],
         [
-            Fr::from_raw([0xcd1c08fa0ad8285f, 0x49579bbfa93cfd88, 0x51f0a4d11b0bde4c, 0x3051f6b4575b5501]),
-            Fr::from_raw([0x64bf31681d8e3eb6, 0x818f57ce2bbfb1b, 0xd841ec193e352da3, 0xd24da353b01d1cd]),
+            Fr::from_raw([
+                0xcd1c08fa0ad8285f,
+                0x49579bbfa93cfd88,
+                0x51f0a4d11b0bde4c,
+                0x3051f6b4575b5501,
+            ]),
+            Fr::from_raw([
+                0x64bf31681d8e3eb6,
+                0x818f57ce2bbfb1b,
+                0xd841ec193e352da3,
+                0xd24da353b01d1cd,
+            ]),
         ],
         [
-            Fr::from_raw([0x868745950bf4fa47, 0x28b3a38c63d8d73d, 0x7a37ad0a2b8cce9b, 0x18d262fe1684723d]),
-            Fr::from_raw([0x1262a06104c13774, 0x3a4d9fd33d352ab4, 0xc7c6e903b0d7c845, 0x1eef1a758c385d4]),
+            Fr::from_raw([
+                0x868745950bf4fa47,
+                0x28b3a38c63d8d73d,
+                0x7a37ad0a2b8cce9b,
+                0x18d262fe1684723d,
+            ]),
+            Fr::from_raw([
+                0x1262a06104c13774,
+                0x3a4d9fd33d352ab4,
+                0xc7c6e903b0d7c845,
+                0x1eef1a758c385d4,
+            ]),
         ],
         [
-            Fr::from_raw([0x9423822db70ea185, 0xc4476d05105e090, 0x52ff9be5db1309e0, 0x124d150dd5ca235c]),
-            Fr::from_raw([0x5d7959ec2d72ea63, 0xdcaf5d3943145871, 0xd92beccafd1d77a6, 0x20f7821bfc6a5c63]),
+            Fr::from_raw([
+                0x9423822db70ea185,
+                0xc4476d05105e090,
+                0x52ff9be5db1309e0,
+                0x124d150dd5ca235c,
+            ]),
+            Fr::from_raw([
+                0x5d7959ec2d72ea63,
+                0xdcaf5d3943145871,
+                0xd92beccafd1d77a6,
+                0x20f7821bfc6a5c63,
+            ]),
         ],
         [
-            Fr::from_raw([0x17d40a7ee75792be, 0x619f1550f7b6368c, 0xa9d4787313e2a4d9, 0x2e3796b9718260f8]),
-            Fr::from_raw([0xf089a7453618ce4d, 0x6e679c984991961f, 0x93a05b946f9bbf09, 0x229e0bde537121af]),
+            Fr::from_raw([
+                0x17d40a7ee75792be,
+                0x619f1550f7b6368c,
+                0xa9d4787313e2a4d9,
+                0x2e3796b9718260f8,
+            ]),
+            Fr::from_raw([
+                0xf089a7453618ce4d,
+                0x6e679c984991961f,
+                0x93a05b946f9bbf09,
+                0x229e0bde537121af,
+            ]),
         ],
         [
-            Fr::from_raw([0xcd23f0cdf2fa97de, 0xd85d6f7dc613ec33, 0x8b4536cfa7b378a6, 0x434ead34c59b120]),
-            Fr::from_raw([0xa2e95c10fb512ff2, 0x673d22457d93f9aa, 0xbf435b1a8455ebec, 0x1fa4281a5ee4dab4]),
+            Fr::from_raw([
+                0xcd23f0cdf2fa97de,
+                0xd85d6f7dc613ec33,
+                0x8b4536cfa7b378a6,
+                0x434ead34c59b120,
+            ]),
+            Fr::from_raw([
+                0xa2e95c10fb512ff2,
+                0x673d22457d93f9aa,
+                0xbf435b1a8455ebec,
+                0x1fa4281a5ee4dab4,
+            ]),
         ],
         [
-            Fr::from_raw([0x6bd2bdf308736b04, 0xcc7c62e437054d82, 0xb5fe76bd90d446e6, 0x1ff3dd7d9e9a28af]),
-            Fr::from_raw([0xff1d3e943b3e447f, 0x7a9af0c96f6ba973, 0x7dcb66d80b00b4c4, 0x29bcd00a3a4f748a]),
+            Fr::from_raw([
+                0x6bd2bdf308736b04,
+                0xcc7c62e437054d82,
+                0xb5fe76bd90d446e6,
+                0x1ff3dd7d9e9a28af,
+            ]),
+            Fr::from_raw([
+                0xff1d3e943b3e447f,
+                0x7a9af0c96f6ba973,
+                0x7dcb66d80b00b4c4,
+                0x29bcd00a3a4f748a,
+            ]),
         ],
         [
-            Fr::from_raw([0x87aa3b6c0608cc63, 0xe92dab06f8b99a02, 0x3cbde284d496afae, 0x1752085ba9964afe]),
-            Fr::from_raw([0xf555c9598059dd19, 0x621e615a45f46b9c, 0xe4b233a6bed6f802, 0x2fc8d8930a5d514b]),
+            Fr::from_raw([
+                0x87aa3b6c0608cc63,
+                0xe92dab06f8b99a02,
+                0x3cbde284d496afae,
+                0x1752085ba9964afe,
+            ]),
+            Fr::from_raw([
+                0xf555c9598059dd19,
+                0x621e615a45f46b9c,
+                0xe4b233a6bed6f802,
+                0x2fc8d8930a5d514b,
+            ]),
         ],
         [
-            Fr::from_raw([0x2cf08c56f4f878d9, 0xf1a0d4ebd8b4b70c, 0xacb079907da14304, 0x25bc8ef554367127]),
-            Fr::from_raw([0x7a0a375e834a95bc, 0x79801f04db6a5972, 0xabddec65051132a4, 0x581be8834d18462]),
+            Fr::from_raw([
+                0x2cf08c56f4f878d9,
+                0xf1a0d4ebd8b4b70c,
+                0xacb079907da14304,
+                0x25bc8ef554367127,
+            ]),
+            Fr::from_raw([
+                0x7a0a375e834a95bc,
+                0x79801f04db6a5972,
+                0xabddec65051132a4,
+                0x581be8834d18462,
+            ]),
         ],
         [
-            Fr::from_raw([0x94896de7014893b9, 0xdac884006d133c4e, 0xd2a7275bfaaeaaf, 0x23d0b729d2976dc0]),
-            Fr::from_raw([0x23778502853d42b0, 0xfaddd64a3600191, 0x2b8395ecb35ba517, 0x2ee876fcf5ab7eba]),
+            Fr::from_raw([
+                0x94896de7014893b9,
+                0xdac884006d133c4e,
+                0xd2a7275bfaaeaaf,
+                0x23d0b729d2976dc0,
+            ]),
+            Fr::from_raw([
+                0x23778502853d42b0,
+                0xfaddd64a3600191,
+                0x2b8395ecb35ba517,
+                0x2ee876fcf5ab7eba,
+            ]),
         ],
         [
-            Fr::from_raw([0x197bb88a09b7e62e, 0x6b9f430f852735e2, 0x67b18521e5024a1a, 0x2a55b40fb8b6c0c2]),
-            Fr::from_raw([0xab7e1432549a0743, 0xac793e1d534e6625, 0x459003e42a530b93, 0x2b5bdf9030dfbea9]),
+            Fr::from_raw([
+                0x197bb88a09b7e62e,
+                0x6b9f430f852735e2,
+                0x67b18521e5024a1a,
+                0x2a55b40fb8b6c0c2,
+            ]),
+            Fr::from_raw([
+                0xab7e1432549a0743,
+                0xac793e1d534e6625,
+                0x459003e42a530b93,
+                0x2b5bdf9030dfbea9,
+            ]),
         ],
         [
-            Fr::from_raw([0x9c9d0e8f8bfda7f6, 0xfb9303ce4298f052, 0xe9b1b32c591f9760, 0xc2745a06592c06a]),
-            Fr::from_raw([0x29ba38afd9d92d84, 0xb8f2de1e949caf46, 0xae197131973feb8f, 0x2aa846dadecd4625]),
+            Fr::from_raw([
+                0x9c9d0e8f8bfda7f6,
+                0xfb9303ce4298f052,
+                0xe9b1b32c591f9760,
+                0xc2745a06592c06a,
+            ]),
+            Fr::from_raw([
+                0x29ba38afd9d92d84,
+                0xb8f2de1e949caf46,
+                0xae197131973feb8f,
+                0x2aa846dadecd4625,
+            ]),
         ],
     ];
     const PREPROCESSED_ROUND_KEYS_X: [[Fr; 2]; 14] = [
         [
-            Fr::from_raw([0xe201c7a03147ffb4, 0x17597bc4a226593b, 0x2e1ada4a3dbdefa3, 0x15d52f66c3a982f1]),
-            Fr::from_raw([0x62710b4db758e2fa, 0xf1f3b8d76c7f7339, 0xe5f469f7251f71aa, 0x30538e0d397bc8c6]),
+            Fr::from_raw([
+                0xe201c7a03147ffb4,
+                0x17597bc4a226593b,
+                0x2e1ada4a3dbdefa3,
+                0x15d52f66c3a982f1,
+            ]),
+            Fr::from_raw([
+                0x62710b4db758e2fa,
+                0xf1f3b8d76c7f7339,
+                0xe5f469f7251f71aa,
+                0x30538e0d397bc8c6,
+            ]),
         ],
         [
-            Fr::from_raw([0x2aecb666ae7f5b9d, 0x610a6df8997ebde9, 0x3f65ee55393e86f6, 0x251aafd1038e4dbd]),
-            Fr::from_raw([0xd1a3b58de08a41b8, 0xcf1fb591d74f0a9c, 0xdc21b04f991a1c07, 0x3003252ed48a6728]),
+            Fr::from_raw([
+                0x2aecb666ae7f5b9d,
+                0x610a6df8997ebde9,
+                0x3f65ee55393e86f6,
+                0x251aafd1038e4dbd,
+            ]),
+            Fr::from_raw([
+                0xd1a3b58de08a41b8,
+                0xcf1fb591d74f0a9c,
+                0xdc21b04f991a1c07,
+                0x3003252ed48a6728,
+            ]),
         ],
         [
-            Fr::from_raw([0x81c5980ad4e3a45d, 0x1446807b907fcc9a, 0x674a81de419ca1ef, 0x2e90a69a9a83140a]),
-            Fr::from_raw([0x670155c7330a9e04, 0xe84b007378b7d57f, 0x94b3263384637f0d, 0xa0f09dc5b5d8c38]),
+            Fr::from_raw([
+                0x81c5980ad4e3a45d,
+                0x1446807b907fcc9a,
+                0x674a81de419ca1ef,
+                0x2e90a69a9a83140a,
+            ]),
+            Fr::from_raw([
+                0x670155c7330a9e04,
+                0xe84b007378b7d57f,
+                0x94b3263384637f0d,
+                0xa0f09dc5b5d8c38,
+            ]),
         ],
         [
-            Fr::from_raw([0xbf589693edd4a8bb, 0x31e8fa7db291de72, 0x9456f992ae1dcd03, 0x518ae3bc04e45b7]),
-            Fr::from_raw([0xa0652776a24674ec, 0xec1ae2f526836912, 0xd6a4bcdcb9485b71, 0x1aa6c3b54d9f5bf]),
+            Fr::from_raw([
+                0xbf589693edd4a8bb,
+                0x31e8fa7db291de72,
+                0x9456f992ae1dcd03,
+                0x518ae3bc04e45b7,
+            ]),
+            Fr::from_raw([
+                0xa0652776a24674ec,
+                0xec1ae2f526836912,
+                0xd6a4bcdcb9485b71,
+                0x1aa6c3b54d9f5bf,
+            ]),
         ],
         [
-            Fr::from_raw([0x9b999d67136a9d59, 0x9c6762c3788fa241, 0xafab96dd69c58b5f, 0x17a73791d523a7b2]),
-            Fr::from_raw([0xb5e68baea0264094, 0x6a86e313f3257fa3, 0xf4e8ab3bbd98436, 0x231165baf95508e6]),
+            Fr::from_raw([
+                0x9b999d67136a9d59,
+                0x9c6762c3788fa241,
+                0xafab96dd69c58b5f,
+                0x17a73791d523a7b2,
+            ]),
+            Fr::from_raw([
+                0xb5e68baea0264094,
+                0x6a86e313f3257fa3,
+                0xf4e8ab3bbd98436,
+                0x231165baf95508e6,
+            ]),
         ],
         [
-            Fr::from_raw([0x79039c0ac021debe, 0x477563192e664c48, 0xeba2a516d2ff544e, 0xefb73fda6e359d]),
-            Fr::from_raw([0x53ec881b417269bd, 0x411de44d42f80520, 0x5715a133cd7b8e52, 0x49c21390763cca8]),
+            Fr::from_raw([
+                0x79039c0ac021debe,
+                0x477563192e664c48,
+                0xeba2a516d2ff544e,
+                0xefb73fda6e359d,
+            ]),
+            Fr::from_raw([
+                0x53ec881b417269bd,
+                0x411de44d42f80520,
+                0x5715a133cd7b8e52,
+                0x49c21390763cca8,
+            ]),
         ],
         [
-            Fr::from_raw([0xb423f95c997feb44, 0x4c650dd72f039842, 0xc746ec014d9f127b, 0x148dad1eaa78ead5]),
-            Fr::from_raw([0xccd0c5658b3d2838, 0xa86094db4a30b61b, 0x420894bce3baa7c0, 0x1cffcde507b31b52]),
+            Fr::from_raw([
+                0xb423f95c997feb44,
+                0x4c650dd72f039842,
+                0xc746ec014d9f127b,
+                0x148dad1eaa78ead5,
+            ]),
+            Fr::from_raw([
+                0xccd0c5658b3d2838,
+                0xa86094db4a30b61b,
+                0x420894bce3baa7c0,
+                0x1cffcde507b31b52,
+            ]),
         ],
         [
-            Fr::from_raw([0x2898ba94ca5c1bc5, 0x4ae0e7d143b30ec5, 0x6655215c8309d13a, 0x112dfa4c6e7120ad]),
-            Fr::from_raw([0x674f4aa34bf25ce9, 0x6e4afa6a43e9dce9, 0xc19fca828db42d93, 0x223442d2cf602309]),
+            Fr::from_raw([
+                0x2898ba94ca5c1bc5,
+                0x4ae0e7d143b30ec5,
+                0x6655215c8309d13a,
+                0x112dfa4c6e7120ad,
+            ]),
+            Fr::from_raw([
+                0x674f4aa34bf25ce9,
+                0x6e4afa6a43e9dce9,
+                0xc19fca828db42d93,
+                0x223442d2cf602309,
+            ]),
         ],
         [
-            Fr::from_raw([0x536f5684c0aee725, 0x4aa9a3086d533300, 0x2f702cabd2831b6d, 0x47b95d221d361a0]),
-            Fr::from_raw([0xca0d39935e5c2d41, 0x405c2a391b7235e, 0x7dc664d0af7fdb40, 0x263ffa3d8182933a]),
+            Fr::from_raw([
+                0x536f5684c0aee725,
+                0x4aa9a3086d533300,
+                0x2f702cabd2831b6d,
+                0x47b95d221d361a0,
+            ]),
+            Fr::from_raw([
+                0xca0d39935e5c2d41,
+                0x405c2a391b7235e,
+                0x7dc664d0af7fdb40,
+                0x263ffa3d8182933a,
+            ]),
         ],
         [
-            Fr::from_raw([0xf9beac0833b4331e, 0x8ae78a4c0f19eeed, 0x42ac3723873fdbe6, 0x21a6da89d1b7bbb6]),
-            Fr::from_raw([0xe770c304c738944e, 0xebbb98a1c3488ab7, 0xa02242b162f890e4, 0x1e18d21015d14334]),
+            Fr::from_raw([
+                0xf9beac0833b4331e,
+                0x8ae78a4c0f19eeed,
+                0x42ac3723873fdbe6,
+                0x21a6da89d1b7bbb6,
+            ]),
+            Fr::from_raw([
+                0xe770c304c738944e,
+                0xebbb98a1c3488ab7,
+                0xa02242b162f890e4,
+                0x1e18d21015d14334,
+            ]),
         ],
         [
-            Fr::from_raw([0xa1631cc970c41abd, 0xc9f186c071fea996, 0x4550b13110a7d2b8, 0x1a8b057283c0ae1b]),
-            Fr::from_raw([0x5acab5a0d60aedb6, 0x4152ec5ede63421c, 0xa46dab7c98ef7024, 0xcd9cd38b35f1e]),
+            Fr::from_raw([
+                0xa1631cc970c41abd,
+                0xc9f186c071fea996,
+                0x4550b13110a7d2b8,
+                0x1a8b057283c0ae1b,
+            ]),
+            Fr::from_raw([
+                0x5acab5a0d60aedb6,
+                0x4152ec5ede63421c,
+                0xa46dab7c98ef7024,
+                0xcd9cd38b35f1e,
+            ]),
         ],
         [
-            Fr::from_raw([0x6bfb8418eabf8e9c, 0xfbfec083a99df53, 0xefefac8d27d01dc7, 0x21108b01c488b179]),
-            Fr::from_raw([0x19453b6e2d39320e, 0xa5530df738ae7fc2, 0x2c3ccc30b6b3f6c1, 0xa38d31ac27955a]),
+            Fr::from_raw([
+                0x6bfb8418eabf8e9c,
+                0xfbfec083a99df53,
+                0xefefac8d27d01dc7,
+                0x21108b01c488b179,
+            ]),
+            Fr::from_raw([
+                0x19453b6e2d39320e,
+                0xa5530df738ae7fc2,
+                0x2c3ccc30b6b3f6c1,
+                0xa38d31ac27955a,
+            ]),
         ],
         [
-            Fr::from_raw([0x522df4c7c2759d3c, 0x3218adfe9cfe6c1a, 0x2e858a497897bc6c, 0x37eea2d52fccf95]),
-            Fr::from_raw([0x4eaa635cbe3810a7, 0x2440b42e5fead5e0, 0xf0c5168eebb0b7b9, 0x27c16f5074742e5f]),
+            Fr::from_raw([
+                0x522df4c7c2759d3c,
+                0x3218adfe9cfe6c1a,
+                0x2e858a497897bc6c,
+                0x37eea2d52fccf95,
+            ]),
+            Fr::from_raw([
+                0x4eaa635cbe3810a7,
+                0x2440b42e5fead5e0,
+                0xf0c5168eebb0b7b9,
+                0x27c16f5074742e5f,
+            ]),
         ],
         [
-            Fr::from_raw([0xbc2a746949d6ae00, 0xa3384f6e830fb02b, 0x3e107d5b0494195, 0x1e91a9bd5695d389]),
-            Fr::from_raw([0x671e1657cd722ad, 0x8f920958ec5b63bc, 0xdb5139941b4f5b25, 0x2f6fe7bcb3d668f8]),
+            Fr::from_raw([
+                0xbc2a746949d6ae00,
+                0xa3384f6e830fb02b,
+                0x3e107d5b0494195,
+                0x1e91a9bd5695d389,
+            ]),
+            Fr::from_raw([
+                0x671e1657cd722ad,
+                0x8f920958ec5b63bc,
+                0xdb5139941b4f5b25,
+                0x2f6fe7bcb3d668f8,
+            ]),
         ],
     ];
     const PREPROCESSED_ROUND_KEYS_Y: [[Fr; 2]; 14] = [
         [
-            Fr::from_raw([0x295789f47eedc4c2, 0xe5baffea909ac2e5, 0x8696a8dce0317dd6, 0x1cc031719e261149]),
-            Fr::from_raw([0xb71fd71f5e507d49, 0xbfb08478e597de61, 0xd4e4aee37010517b, 0x1a3ad42234fb1ff9]),
+            Fr::from_raw([
+                0x295789f47eedc4c2,
+                0xe5baffea909ac2e5,
+                0x8696a8dce0317dd6,
+                0x1cc031719e261149,
+            ]),
+            Fr::from_raw([
+                0xb71fd71f5e507d49,
+                0xbfb08478e597de61,
+                0xd4e4aee37010517b,
+                0x1a3ad42234fb1ff9,
+            ]),
         ],
         [
-            Fr::from_raw([0x91f99df865232534, 0x7637f2095366a69f, 0xbf5e6b71e045951e, 0x116203c620e020cc]),
-            Fr::from_raw([0x44ddd7d4be6444ed, 0xc28c953b499507ec, 0x581d3b1572fa5d08, 0x302615964fb9d065]),
+            Fr::from_raw([
+                0x91f99df865232534,
+                0x7637f2095366a69f,
+                0xbf5e6b71e045951e,
+                0x116203c620e020cc,
+            ]),
+            Fr::from_raw([
+                0x44ddd7d4be6444ed,
+                0xc28c953b499507ec,
+                0x581d3b1572fa5d08,
+                0x302615964fb9d065,
+            ]),
         ],
         [
-            Fr::from_raw([0x3c0efd278ab9bf69, 0xda706741b36b31da, 0x40c3e79ff504b79c, 0x1c96be8fa21f98a2]),
-            Fr::from_raw([0x61d8ac0e7343b6fd, 0xa9511e59afd888e6, 0x4d6bbcdf9b68c295, 0x1153f57f79516b3d]),
+            Fr::from_raw([
+                0x3c0efd278ab9bf69,
+                0xda706741b36b31da,
+                0x40c3e79ff504b79c,
+                0x1c96be8fa21f98a2,
+            ]),
+            Fr::from_raw([
+                0x61d8ac0e7343b6fd,
+                0xa9511e59afd888e6,
+                0x4d6bbcdf9b68c295,
+                0x1153f57f79516b3d,
+            ]),
         ],
         [
-            Fr::from_raw([0x8b0e0f4740cdd8a4, 0x83f42ccb7e4c857a, 0x92858373b6c47857, 0x2123101595a91ff2]),
-            Fr::from_raw([0xc4038b6ef800e403, 0x391bf44033c5d0df, 0x551c01074431ecf5, 0x20c2e2f5be0fb655]),
+            Fr::from_raw([
+                0x8b0e0f4740cdd8a4,
+                0x83f42ccb7e4c857a,
+                0x92858373b6c47857,
+                0x2123101595a91ff2,
+            ]),
+            Fr::from_raw([
+                0xc4038b6ef800e403,
+                0x391bf44033c5d0df,
+                0x551c01074431ecf5,
+                0x20c2e2f5be0fb655,
+            ]),
         ],
         [
-            Fr::from_raw([0x636e5744b9fa5c17, 0x28e7b1e1dac71003, 0xb4f42ad378ad55f9, 0x1a74bda4ee0d1433]),
-            Fr::from_raw([0x29aa84fe766e080, 0x3eb9753fd08884bb, 0x25ba6d69c3a54a1d, 0x64ef0c2d6f1bf02]),
+            Fr::from_raw([
+                0x636e5744b9fa5c17,
+                0x28e7b1e1dac71003,
+                0xb4f42ad378ad55f9,
+                0x1a74bda4ee0d1433,
+            ]),
+            Fr::from_raw([
+                0x29aa84fe766e080,
+                0x3eb9753fd08884bb,
+                0x25ba6d69c3a54a1d,
+                0x64ef0c2d6f1bf02,
+            ]),
         ],
         [
-            Fr::from_raw([0x19b54ad9d06ef85c, 0x8889a0e989929335, 0xf99608f90a3ca64d, 0xe5002dda0b4013d]),
-            Fr::from_raw([0x82277fb6be16b291, 0xf687f2170c22a39b, 0xaf91e8fa7676e07b, 0x204910e50ed5d803]),
+            Fr::from_raw([
+                0x19b54ad9d06ef85c,
+                0x8889a0e989929335,
+                0xf99608f90a3ca64d,
+                0xe5002dda0b4013d,
+            ]),
+            Fr::from_raw([
+                0x82277fb6be16b291,
+                0xf687f2170c22a39b,
+                0xaf91e8fa7676e07b,
+                0x204910e50ed5d803,
+            ]),
         ],
         [
-            Fr::from_raw([0x6434049c52274ba1, 0xecf245ccf7428624, 0x93e22a24c90a7f8, 0x1626112ee7bee848]),
-            Fr::from_raw([0x9d38a470744f0b74, 0x1656beec0c443740, 0xc1535a5335918f3b, 0x2f3a8756c3bc23]),
+            Fr::from_raw([
+                0x6434049c52274ba1,
+                0xecf245ccf7428624,
+                0x93e22a24c90a7f8,
+                0x1626112ee7bee848,
+            ]),
+            Fr::from_raw([
+                0x9d38a470744f0b74,
+                0x1656beec0c443740,
+                0xc1535a5335918f3b,
+                0x2f3a8756c3bc23,
+            ]),
         ],
         [
-            Fr::from_raw([0xc4a9ea8bca492186, 0xe1dea7a192f89a70, 0x92d12467662fe005, 0xabb350a34f2686d]),
-            Fr::from_raw([0x8c0d5fff98fddc95, 0xd17b3790ba9a43d5, 0x84b36346d20aa828, 0x1de9ae47027e2287]),
+            Fr::from_raw([
+                0xc4a9ea8bca492186,
+                0xe1dea7a192f89a70,
+                0x92d12467662fe005,
+                0xabb350a34f2686d,
+            ]),
+            Fr::from_raw([
+                0x8c0d5fff98fddc95,
+                0xd17b3790ba9a43d5,
+                0x84b36346d20aa828,
+                0x1de9ae47027e2287,
+            ]),
         ],
         [
-            Fr::from_raw([0xaf113a443317215a, 0x917170928479cedd, 0x2cf9672ed5d1e89f, 0x6353fc2782f9079]),
-            Fr::from_raw([0xf1cdd13861263107, 0xdc9c45c2efb5d2b2, 0xcbd8bc4d3d7a7f42, 0x68ae5a9b33a1c18]),
+            Fr::from_raw([
+                0xaf113a443317215a,
+                0x917170928479cedd,
+                0x2cf9672ed5d1e89f,
+                0x6353fc2782f9079,
+            ]),
+            Fr::from_raw([
+                0xf1cdd13861263107,
+                0xdc9c45c2efb5d2b2,
+                0xcbd8bc4d3d7a7f42,
+                0x68ae5a9b33a1c18,
+            ]),
         ],
         [
-            Fr::from_raw([0x42efe417091d0711, 0x6d0d50d3a4e44d29, 0x3ae960443381706f, 0x23c518dd39f01a9]),
-            Fr::from_raw([0x7bb335f4faef53e4, 0x6cc238a5274be7b2, 0x82c8d2a90d713142, 0x1a58584ec74dea5e]),
+            Fr::from_raw([
+                0x42efe417091d0711,
+                0x6d0d50d3a4e44d29,
+                0x3ae960443381706f,
+                0x23c518dd39f01a9,
+            ]),
+            Fr::from_raw([
+                0x7bb335f4faef53e4,
+                0x6cc238a5274be7b2,
+                0x82c8d2a90d713142,
+                0x1a58584ec74dea5e,
+            ]),
         ],
         [
-            Fr::from_raw([0x764c1dc57e748659, 0xad63169f51056a00, 0xb7aff34741ecf980, 0xd952a7cec6df3ce]),
-            Fr::from_raw([0xffe26ddfc3de102c, 0x38d80e0d3aa669d, 0x91b517f02b45aa4a, 0x1472fb339b38f7e8]),
+            Fr::from_raw([
+                0x764c1dc57e748659,
+                0xad63169f51056a00,
+                0xb7aff34741ecf980,
+                0xd952a7cec6df3ce,
+            ]),
+            Fr::from_raw([
+                0xffe26ddfc3de102c,
+                0x38d80e0d3aa669d,
+                0x91b517f02b45aa4a,
+                0x1472fb339b38f7e8,
+            ]),
         ],
         [
-            Fr::from_raw([0x915c315d6333d9f2, 0xce2a6a024f5d6dcb, 0xe1db111b08fdcf3d, 0x88b86c8b8989a11]),
-            Fr::from_raw([0x41b07c0934654018, 0xb39c01170a100cfa, 0x8a4be854c55cdeaa, 0x27c8fce5f9d984a]),
+            Fr::from_raw([
+                0x915c315d6333d9f2,
+                0xce2a6a024f5d6dcb,
+                0xe1db111b08fdcf3d,
+                0x88b86c8b8989a11,
+            ]),
+            Fr::from_raw([
+                0x41b07c0934654018,
+                0xb39c01170a100cfa,
+                0x8a4be854c55cdeaa,
+                0x27c8fce5f9d984a,
+            ]),
         ],
         [
-            Fr::from_raw([0x14d66be44bd391b0, 0x17d558ff94b8d66a, 0xf07de5a34a37c059, 0x848e2e6dcbb189c]),
-            Fr::from_raw([0xe8fd551790f3cac3, 0x58f29339b12fed7, 0x55ea87bf6bb2e70d, 0x1244114c4fa7b6e]),
+            Fr::from_raw([
+                0x14d66be44bd391b0,
+                0x17d558ff94b8d66a,
+                0xf07de5a34a37c059,
+                0x848e2e6dcbb189c,
+            ]),
+            Fr::from_raw([
+                0xe8fd551790f3cac3,
+                0x58f29339b12fed7,
+                0x55ea87bf6bb2e70d,
+                0x1244114c4fa7b6e,
+            ]),
         ],
         [
-            Fr::from_raw([0x3699055f7fd211a8, 0xfad13801b89b17f6, 0xe8e936bc011238a7, 0x129ad7ea376ecdb8]),
-            Fr::from_raw([0x6a297506d2ec0a99, 0x7f81e3e3adfdb120, 0x934d19ac61ac466, 0x16337eaed8cf3863]),
+            Fr::from_raw([
+                0x3699055f7fd211a8,
+                0xfad13801b89b17f6,
+                0xe8e936bc011238a7,
+                0x129ad7ea376ecdb8,
+            ]),
+            Fr::from_raw([
+                0x6a297506d2ec0a99,
+                0x7f81e3e3adfdb120,
+                0x934d19ac61ac466,
+                0x16337eaed8cf3863,
+            ]),
         ],
     ];
     const MDS_MATRIX: [[Fr; 2]; 2] = [
-        [Fr::from_raw([0x1, 0x0, 0x0, 0x0]), Fr::from_raw([0x5, 0x0, 0x0, 0x0])],
-        [Fr::from_raw([0x5, 0x0, 0x0, 0x0]), Fr::from_raw([0x1a, 0x0, 0x0, 0x0])],
+        [
+            Fr::from_raw([0x1, 0x0, 0x0, 0x0]),
+            Fr::from_raw([0x5, 0x0, 0x0, 0x0]),
+        ],
+        [
+            Fr::from_raw([0x5, 0x0, 0x0, 0x0]),
+            Fr::from_raw([0x1a, 0x0, 0x0, 0x0]),
+        ],
     ];
 
     const USE_PHT: bool = true;

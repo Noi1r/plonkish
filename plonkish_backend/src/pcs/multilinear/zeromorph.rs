@@ -7,7 +7,10 @@ use crate::{
         },
         Evaluation, Evaluation_for_shift, Point, PolynomialCommitmentScheme,
     },
-    poly::{multilinear::{rotation_eval, MultilinearPolynomial}, univariate::UnivariatePolynomial},
+    poly::{
+        multilinear::{rotation_eval, MultilinearPolynomial},
+        univariate::UnivariatePolynomial,
+    },
     util::{
         arithmetic::{
             powers, squares, variable_base_msm, BatchInvert, Curve, Field, MultiMillerLoop,
@@ -49,6 +52,7 @@ impl<M: MultiMillerLoop> ZeromorphKzgProverParam<M> {
 pub struct ZeromorphKzgVerifierParam<M: MultiMillerLoop> {
     vp: UnivariateKzgVerifierParam<M>,
     s_offset_g2: M::G2Affine,
+    // s_all_g2: Vec<M::G2Affine>,
 }
 
 impl<M: MultiMillerLoop> ZeromorphKzgVerifierParam<M> {
@@ -83,7 +87,7 @@ where
 
     fn setup(poly_size: usize, batch_size: usize, rng: impl RngCore) -> Result<Self::Param, Error> {
         assert!(poly_size.is_power_of_two());
-        UnivariateKzg::<M>::setup((poly_size+1).next_power_of_two(), batch_size, rng)
+        UnivariateKzg::<M>::setup((poly_size + 1).next_power_of_two(), batch_size, rng)
     }
 
     fn trim(
@@ -93,13 +97,15 @@ where
     ) -> Result<(Self::ProverParam, Self::VerifierParam), Error> {
         assert!(poly_size.is_power_of_two());
 
-        let (commit_pp, vp) = UnivariateKzg::<M>::trim(param, (poly_size+1).next_power_of_two(), batch_size)?;
-        let offset = param.monomial_g1().len() - (poly_size+1).next_power_of_two();
+        let (commit_pp, vp) =
+            UnivariateKzg::<M>::trim(param, (poly_size + 1).next_power_of_two(), batch_size)?;
+        let offset = param.monomial_g1().len() - (poly_size + 1).next_power_of_two();
         let open_pp = {
             let monomial_g1 = param.monomial_g1()[offset..].to_vec();
-            UnivariateKzgProverParam::new((poly_size.ilog2()+1) as usize, monomial_g1, Vec::new())
+            UnivariateKzgProverParam::new((poly_size.ilog2() + 1) as usize, monomial_g1, Vec::new())
         };
         let s_offset_g2 = param.powers_of_s_g2()[offset];
+        // let s_all_g2 = param.powers_of_s_g2().to_vec();
 
         Ok((
             ZeromorphKzgProverParam { commit_pp, open_pp },
@@ -240,8 +246,8 @@ where
         UnivariateKzg::read_commitments(&vp.vp, num_polys, transcript)
     }
 
-    fn prove_shifted_evaluation(
-        pp: &Self::ProverParam,  // ZeromorphKzgProverParam<M>
+    fn open_shift(
+        pp: &Self::ProverParam,                       // ZeromorphKzgProverParam<M>
         poly: &Self::Polynomial, // MultilinearPolynomial<M::Scalar> (merged and scaled)
         comm: &Self::Commitment, // Commitment<M::Scalar, UnivariateKzg<M>> (to the original merged poly)
         point: &Point<M::Scalar, Self::Polynomial>, // Vec<M::Scalar> (the point 'u')
@@ -259,18 +265,25 @@ where
         // --- Pre-checks ---
 
         if cfg!(feature = "sanity-check") {
-            assert_eq!(rotation_eval(point, *rotation, &poly.evaluate_for_rotation(point, *rotation)), *value);
+            assert_eq!(
+                rotation_eval(
+                    point,
+                    *rotation,
+                    &poly.evaluate_for_rotation(point, *rotation)
+                ),
+                *value
+            );
         }
 
         if signed_d == 0 {
             return Err(Error::InternalError(
-                "Rotation distance is zero in prove_shifted_evaluation".to_string(),
+                "Rotation distance is zero in open_shift".to_string(),
             ));
         }
         if pp.commit_pp.degree() + 1 < n_evals {
             let got = n_evals - 1;
             return Err(err_too_large_deree(
-                "prove_shifted_evaluation (poly degree)",
+                "open_shift (poly degree)",
                 pp.commit_pp.degree(),
                 got,
             ));
@@ -335,119 +348,129 @@ where
         let x = transcript.squeeze_challenge();
         let z = transcript.squeeze_challenge();
 
-        let (eval_scalar, q_scalars) = eval_and_quotient_scalars(y, x, z, point);
+        let (eval_scalar, q_scalars) = eval_and_quotient_scalars_shift(y, x, z, point, rotation);
+        // let (eval_scalar, q_scalars) = eval_and_quotient_scalars(y, x, z, point);
 
-         // 原始多项式 f 的单变量表示 (U_n(f))
-         let f_uni = crate::poly::univariate::UnivariatePolynomial::monomial(poly.evals().to_vec());
+        // 原始多项式 f 的单变量表示 (U_n(f))
+        let f_uni = crate::poly::univariate::UnivariatePolynomial::monomial(poly.evals().to_vec());
 
-         // 构造多项式 X^N
-         let x_n = {
-             let mut coeffs = vec![M::Scalar::ZERO; n_evals + 1];
-             if let Some(coeff) = coeffs.get_mut(n_evals) {
-                  *coeff = M::Scalar::ONE;
-             } else if n_evals == 0 { // 处理 num_vars=0 的边界情况
-                  coeffs = vec![M::Scalar::ONE]; // X^0 = 1
-             }
-              crate::poly::univariate::UnivariatePolynomial::monomial(coeffs)
-         };
+        // 构造多项式 X^N
+        let x_n = {
+            let mut coeffs = vec![M::Scalar::ZERO; n_evals + 1];
+            if let Some(coeff) = coeffs.get_mut(n_evals) {
+                *coeff = M::Scalar::ONE;
+            } else if n_evals == 0 {
+                // 处理 num_vars=0 的边界情况
+                coeffs = vec![M::Scalar::ONE]; // X^0 = 1
+            }
+            crate::poly::univariate::UnivariatePolynomial::monomial(coeffs)
+        };
 
- 
-         // 构造检查多项式中涉及 v 和 q_{d,k} 的部分
-         // term3_inner = v * eval_scalar + sum(q_{d,k} * q_scalar_k)
-         let value_d = poly_d.evaluate(point);
-         let mut term3_inner =
+        // println!("x_n.len(): {:?}", x_n.coeffs().len());
+
+        // 构造检查多项式中涉及 v 和 q_{d,k} 的部分
+        // term3_inner = v * eval_scalar + sum(q_{d,k} * q_scalar_k)
+        let value_d = poly_d.evaluate(point);
+        let mut term3_inner =
               // 使用 monomial 构造常数项
              crate::poly::univariate::UnivariatePolynomial::monomial(vec![value_d * eval_scalar]);
-         izip!(&quotients_d, &q_scalars).for_each(|(q, scalar)| {
-              term3_inner += &(q * *scalar)
-         });
- 
- 
-         // 根据移位方向计算 F_d
-         let F_d = if signed_d > 0 {
-             // 左移 d = abs_d
-             // P_Ad: 使用 f 的前 d 个系数构造
-            //  println!("---poly.evals()[..abs_d].to_vec(): {:?}", poly.evals()[..abs_d].to_vec());
-             let p_ad =
-                 crate::poly::univariate::UnivariatePolynomial::monomial(poly.evals()[..abs_d].to_vec());
-             // X^d
+        izip!(&quotients_d, &q_scalars).for_each(|(q, scalar)| term3_inner += &(q * *scalar));
 
-             crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
+        // 根据移位方向计算 F_d
+        let F_d = if signed_d > 0 {
+            // 左移 d = abs_d
+            // P_Ad: 使用 f 的前 d 个系数构造
+            //  println!("---poly.evals()[..abs_d].to_vec(): {:?}", poly.evals()[..abs_d].to_vec());
+            let p_ad = crate::poly::univariate::UnivariatePolynomial::monomial(
+                poly.evals()[..abs_d].to_vec(),
+            );
+            // X^d
+
+            crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
                 &pp.commit_pp,
                 &p_ad,
                 transcript,
             )?;
 
-             let x_d = {
-                 let mut coeffs = vec![M::Scalar::ZERO; abs_d + 1];
-                  if let Some(coeff) = coeffs.get_mut(abs_d) { *coeff = M::Scalar::ONE; }
-                  else if abs_d == 0 { coeffs = vec![M::Scalar::ONE]; } // X^0 = 1
-                 crate::poly::univariate::UnivariatePolynomial::monomial(coeffs)
-             };
+            let x_d = {
+                let mut coeffs = vec![M::Scalar::ZERO; abs_d + 1];
+                if let Some(coeff) = coeffs.get_mut(abs_d) {
+                    *coeff = M::Scalar::ONE;
+                } else if abs_d == 0 {
+                    coeffs = vec![M::Scalar::ONE];
+                } // X^0 = 1
+                crate::poly::univariate::UnivariatePolynomial::monomial(coeffs)
+            };
 
-             let x_n_p_ad = &x_n * &p_ad;
+            // let x_n_p_ad = &x_n * &p_ad;
+            let x_n_p_ad = &p_ad * x.pow_vartime([(n_evals) as u64]);
 
-             crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
-                &pp.commit_pp,
-                &x_n_p_ad,
-                transcript,
-            )?;
- 
-             // Term1 = f_uni - P_Ad + P_Ad * X^N
-             let mut term1 = f_uni; // 克隆 f_uni
-             term1 -= &p_ad; 
-            //  term1 += &(&p_ad * &x_n); 
+            // crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
+            //     &pp.commit_pp,
+            //     &x_n_p_ad,
+            //     transcript,
+            // )?;
+
+            // Term1 = f_uni - P_Ad + P_Ad * X^N
+            let mut term1 = f_uni; // 克隆 f_uni
+            term1 -= &p_ad;
             term1 += &x_n_p_ad;
- 
-             // F_d = z * Term1 + X^d * q_d_hat + X^d * term3_inner
-             let mut F_d = &term1 * z;
-             F_d += &(&x_d * &q_d_hat);      
-             F_d += &(&x_d * &term3_inner); 
-             F_d
-         } else {
-             // 右移 d' = abs_d = -signed_d
-             // P_Ad: 使用 f 的后 d' 个系数构造
-            //  println!("---poly.evals()[n_evals - abs_d..].to_vec(): {:?}", poly.evals()[n_evals - abs_d..].to_vec());
-             let p_ad = crate::poly::univariate::UnivariatePolynomial::monomial(
-                 poly.evals()[n_evals - abs_d..].to_vec(),
-             );
 
-             // X^{d'}
-             let x_d_prime = {
-                  let mut coeffs = vec![M::Scalar::ZERO; abs_d + 1];
-                  if let Some(coeff) = coeffs.get_mut(abs_d) { *coeff = M::Scalar::ONE; }
-                  else if abs_d == 0 { coeffs = vec![M::Scalar::ONE]; } // X^0 = 1
-                 crate::poly::univariate::UnivariatePolynomial::monomial(coeffs)
-             };
+            // F_d = z * Term1 + q_d_hat + X^d * term3_inner
+            let mut F_d = &term1 * z;
+            F_d += &q_d_hat;
+            F_d += &term3_inner;
+            F_d
+        } else {
+            // 右移 d' = abs_d = -signed_d
+            // P_Ad: 使用 f 的后 d' 个系数构造
+            let p_ad = crate::poly::univariate::UnivariatePolynomial::monomial(
+                poly.evals()[n_evals - abs_d..].to_vec(),
+            );
 
-             let x_d_prime_p_ad = &x_d_prime * &p_ad;
+            // X^{d'}
+            let x_d_prime = {
+                let mut coeffs = vec![M::Scalar::ZERO; abs_d + 1];
+                if let Some(coeff) = coeffs.get_mut(abs_d) {
+                    *coeff = M::Scalar::ONE;
+                } else if abs_d == 0 {
+                    coeffs = vec![M::Scalar::ONE];
+                } // X^0 = 1
+                crate::poly::univariate::UnivariatePolynomial::monomial(coeffs)
+            };
 
-             crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
+            // println!("x_d_prime.len(): {:?}", x_d_prime.coeffs().len());
+
+
+
+            let x_d_prime_p_ad = &x_d_prime * &p_ad;
+            crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
                 &pp.commit_pp,
                 &x_d_prime_p_ad,
                 transcript,
             )?;
+            // let x_n_p_ad = &x_n * &p_ad;
+            let x_n_p_ad = &x_d_prime_p_ad * x.pow_vartime([(n_evals-abs_d) as u64]);
 
-            let x_n_p_ad = &x_n * &p_ad;
+            // crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
+            //     &pp.commit_pp,
+            //     &x_n_p_ad,
+            //     transcript,
+            // )?;
 
-            crate::pcs::univariate::UnivariateKzg::<M>::commit_and_write(
-                &pp.commit_pp,
-                &x_n_p_ad,
-                transcript,
-            )?;
- 
-             // Term1 = X^d' * f_uni - X^d' * P_Ad + P_Ad * X^N 
-             let mut term1 = &x_d_prime * &f_uni;    
-             term1 -= &x_d_prime_p_ad;    
-             term1 += &x_n_p_ad;        
- 
-             // F_d = z * Term1 + q_d_hat + term3_inner 
-             let mut F_d = &term1 * z;
-             F_d += &q_d_hat;           
-             F_d += &term3_inner;       
-             F_d
-         };
-         
+            // Term1 = X^d' * f_uni - X^d' * P_Ad + P_Ad * X^N
+            let mut term1 = f_uni * x.pow_vartime([abs_d as u64]);
+            term1 -= &x_d_prime_p_ad;
+            term1 += &x_n_p_ad;
+
+            // F_d = z * Term1 + q_d_hat + term3_inner
+            let mut F_d = &term1 * z;
+            F_d += &q_d_hat;
+            F_d += &term3_inner;
+            F_d
+        };
+
+        // println!("F_d: {:?}", F_d.evaluate(&(x)));
         let comm = if cfg!(feature = "sanity-check") {
             assert_eq!(F_d.evaluate(&x), M::Scalar::ZERO);
             UnivariateKzg::commit_monomial(&pp.open_pp, F_d.coeffs())
@@ -463,7 +486,7 @@ where
             &M::Scalar::ZERO, // 声称的求值结果是零
             transcript,
         )
-    } // End of prove_shifted_evaluation
+    } // End of open_shift
 
     fn verify(
         vp: &Self::VerifierParam,
@@ -501,48 +524,81 @@ where
         .ok_or_else(|| Error::InvalidPcsOpen("Invalid Zeromorph KZG open".to_string()))
     }
 
-
-
     fn verify_shifted_evaluation(
-        vp: &Self::VerifierParam,                       // ZeromorphKzgVerifierParam<M>
-        comm: &Self::Commitment, // 对原始合并多项式 f 的承诺 C_f
+        vp: &Self::VerifierParam,                   // ZeromorphKzgVerifierParam<M>
+        comm: &Self::Commitment,                    // 对原始合并多项式 f 的承诺 C_f
         point: &Point<M::Scalar, Self::Polynomial>, // 求值点 u
-        value: &M::Scalar,       // 声称的求值 v = f_d(u)
-        rotation: &crate::util::expression::Rotation, 
+        value: &M::Scalar,                          // 声称的求值 v = f_d(u)
+        rotation: &crate::util::expression::Rotation,
         transcript: &mut impl TranscriptRead<Self::CommitmentChunk, M::Scalar>,
-    ) -> Result<(), Error>
-    {
+    ) -> Result<(), Error> {
         let num_vars = point.len();
 
         // 1. 从 transcript 读取商多项式的承诺 C_{q_{d,k}}
-        let q_comms_d = crate::pcs::univariate::UnivariateKzg::<M>::read_commitments(&vp.vp, num_vars, transcript)?;
+        let q_comms_d = crate::pcs::univariate::UnivariateKzg::<M>::read_commitments(
+            &vp.vp, num_vars, transcript,
+        )?;
 
         // 2. Squeeze challenge y, 读取合并商多项式的承诺 C_{q_d_hat}
         let y = transcript.squeeze_challenge();
-        let q_d_hat_comm = crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
+        let q_d_hat_comm =
+            crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
 
         // 3. Squeeze challenges x, z, 计算验证所需的标量
         let x = transcript.squeeze_challenge();
         let z = transcript.squeeze_challenge();
-        let (eval_scalar, q_scalars) = eval_and_quotient_scalars(y, x, z, point); 
+        let (eval_scalar, q_scalars) = eval_and_quotient_scalars_shift(y, x, z, point, rotation);
 
-        let p_ad_comm = crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
+        let p_ad_comm =
+            crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
 
-        let x_n_p_ad_comm = crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
-        // println!("eval_scalar: {:?}", eval_scalar);
-        // println!("q_scalars: {:?}", q_scalars);
+        // let x_n_p_ad_comm =
+        //     crate::pcs::univariate::UnivariateKzg::<M>::read_commitment(&vp.vp, transcript)?;
 
-        //    C 对应于 f_check = q_d_hat + z*f + eval_scalar*v*1 + sum(q_scalar_k * q_{d,k})
-        let scalars = chain![
-            [M::Scalar::ONE, z,-z,z, eval_scalar * value],
-            q_scalars
-        ].collect_vec();
-        let bases = chain![
-            [q_d_hat_comm.0, comm.0,p_ad_comm.0,x_n_p_ad_comm.0, vp.g1()], // Use .0 for comms, vp.g1() is already G1Affine
-            q_comms_d.iter().map(|c| c.0)      // Use .0 for quotient comms
-        ].collect_vec();
-        
-        
+        let mut scalars = Vec::new();
+        let mut bases = Vec::new();
+
+        // println!("point.len(): {:?}", point.len());
+        //    C 对应于 f_check = q_d_hat + z*f + eval_scalar*v + sum(q_scalar_k * q_{d,k})
+        if rotation.0 > 0 {
+            scalars =
+                chain![[M::Scalar::ONE, z, -z+z * x.pow_vartime([2_usize.pow(point.len() as u32) as u64]), eval_scalar * value], q_scalars].collect_vec();
+            bases = chain![
+                [
+                    q_d_hat_comm.0,
+                    comm.0,
+                    p_ad_comm.0,
+                    // x_n_p_ad_comm.0,
+                    vp.g1()
+                ], // Use .0 for comms, vp.g1() is already G1Affine
+                q_comms_d.iter().map(|c| c.0) // Use .0 for quotient comms
+            ]
+            .collect_vec();
+
+        } else {
+            scalars = chain![
+                [
+                    M::Scalar::ONE,
+                    z * x.pow_vartime([rotation.distance() as u64]),
+                    -z+z * x.pow_vartime([2_usize.pow(point.len() as u32) as u64 - rotation.distance() as u64]),
+                    eval_scalar * value
+                ],
+                q_scalars
+            ]
+            .collect_vec();
+            bases = chain![
+                [
+                    q_d_hat_comm.0,
+                    comm.0,
+                    p_ad_comm.0,
+                    // x_n_p_ad_comm.0,
+                    vp.g1()
+                ], // Use .0 for comms, vp.g1() is already G1Affine
+                q_comms_d.iter().map(|c| c.0) // Use .0 for quotient comms
+            ]
+            .collect_vec();
+        }
+
         // 使用 MSM 计算重构的承诺 C
         let reconstructed_commitment_c: M::G1Affine = variable_base_msm(&scalars, &bases).into();
 
@@ -551,26 +607,25 @@ where
 
         // println!("vp.s_g2(): {:?}", vp.s_g2());
         // println!("vp.s_offset_g2(): {:?}", vp.s_offset_g2);
+
         // 6. 执行最终的配对检查 (验证 C 在点 x 打开为 0，使用证明 pi_d)
         M::pairings_product_is_identity(&[
             (&reconstructed_commitment_c, &(-vp.s_offset_g2).into()),
-            (&pi_d, &(vp.s_g2() - (vp.g2() * x).into()).to_affine().into()),
+            (
+                &pi_d,
+                &(vp.s_g2() - (vp.g2() * x).into()).to_affine().into(),
+            ),
         ])
         .then_some(())
-        .ok_or_else(|| {
-            Error::InvalidPcsOpen(format!(
-                "Invalid Zeromorph KZG shifted open for rotation {}", rotation.0))} // 使用 rotation.0 获取带符号距
+        .ok_or_else(
+            || {
+                Error::InvalidPcsOpen(format!(
+                    "Invalid Zeromorph KZG shifted open for rotation {}",
+                    rotation.0
+                ))
+            }, // 使用 rotation.0 获取带符号距
         )
-
-        // TODO: add relation between p_ad and x_n_p_ad
-        // M::pairings_product_is_identity(&[
-        //     (&p_ad_comm.0, &(-vp.s_offset_g2).into()),
-        //     (&pi_d, &(vp.s_g2() - (vp.g2() * x).into()).to_affine().into()),
-        // ])
-        // .then_some(())
-        // .ok_or_else(|| Error::InvalidPcsOpen("Invalid Zeromorph KZG open".to_string()))
-    } 
-
+    }
 
     fn batch_verify<'a>(
         vp: &Self::VerifierParam,
@@ -629,7 +684,6 @@ fn eval_and_quotient_scalars<F: Field>(y: F, x: F, z: F, u: &[F]) -> (F, Vec<F>)
             .collect_vec()
     };
 
-
     let q_scalars = izip!(powers(y), offsets_of_x, squares_of_x, &vs, &vs[1..], u)
         .map(|(power_of_y, offset_of_x, square_of_x, v_i, v_j, u_i)| {
             -(power_of_y * offset_of_x + z * (square_of_x * v_j - *u_i * v_i))
@@ -639,6 +693,62 @@ fn eval_and_quotient_scalars<F: Field>(y: F, x: F, z: F, u: &[F]) -> (F, Vec<F>)
     (-vs[0] * z, q_scalars)
 }
 
+fn eval_and_quotient_scalars_shift<F: Field>(
+    y: F,
+    x: F,
+    z: F,
+    u: &[F],
+    rotation: &crate::util::expression::Rotation,
+) -> (F, Vec<F>) {
+    let num_vars = u.len();
+
+    let squares_of_x = squares(x).take(num_vars + 1).collect_vec();
+    //offsets＿of＿x ：计算一个偏移量序列 $O=\left[O_0, \ldots, O_{n-1}\right]$ ，其中 $O_k=\prod_{j=k+1}^{n-1} s_j=$ $\prod_{j=k+1}^{n-1} x^{2^j}$ 。这个序列与多线性求值和转换有关。
+    let offsets_of_x = {
+        let mut offsets_of_x = squares_of_x
+            .iter()
+            .rev()
+            .skip(1)
+            .scan(F::ONE, |state, power_of_x| {
+                *state *= power_of_x;
+                Some(*state)
+            })
+            .collect_vec();
+        offsets_of_x.reverse();
+        offsets_of_x
+    };
+    // vs ：计算另一个序列 $V=\left[V_0, \ldots, V_n\right]$ ，其中 $V_k=\left(s_n-1\right) /\left(s_k-1\right)=\left(x^{2^n}-\right.$ 1）$/\left(x^{2^k}-1\right)$ 。可以证明 $V_k=\sum_{j=0}^{2^{n-k}-1}\left(x^{2^k}\right)^j=\Phi_{n-k}\left(x^{2^k}\right)$（参见论文 中 $\Phi$ 的定义）。
+    let vs = {
+        let v_numer = squares_of_x[num_vars] - F::ONE;
+        let mut v_denoms = squares_of_x
+            .iter()
+            .map(|square_of_x| *square_of_x - F::ONE)
+            .collect_vec();
+        v_denoms.batch_invert();
+        v_denoms
+            .iter()
+            .map(|v_denom| v_numer * v_denom)
+            .collect_vec()
+    };
+
+    if rotation.0 > 0 {
+        let d = rotation.distance();
+        let q_scalars = izip!(powers(y), offsets_of_x, squares_of_x, &vs, &vs[1..], u)
+            .map(|(power_of_y, offset_of_x, square_of_x, v_i, v_j, u_i)| {
+                -(power_of_y * offset_of_x
+                    + x.pow_vartime([d as u64]) * z * (square_of_x * v_j - *u_i * v_i))
+            })
+            .collect_vec();
+        return (-vs[0] * z * x.pow_vartime([d as u64]), q_scalars);
+    } else {
+        let q_scalars = izip!(powers(y), offsets_of_x, squares_of_x, &vs, &vs[1..], u)
+            .map(|(power_of_y, offset_of_x, square_of_x, v_i, v_j, u_i)| {
+                -(power_of_y * offset_of_x + z * (square_of_x * v_j - *u_i * v_i))
+            })
+            .collect_vec();
+        return (-vs[0] * z, q_scalars);
+    }
+}
 
 #[cfg(test)]
 mod test {

@@ -84,29 +84,28 @@ pub trait PolynomialCommitmentScheme<F: Field>: Clone + Debug {
         transcript: &mut impl TranscriptWrite<Self::CommitmentChunk, F>,
     ) -> Result<(), Error>;
 
-    fn prove_shifted_evaluation(
+    fn open_shift(
         pp: &Self::ProverParam,                       // ZeromorphKzgProverParam<M>
         poly: &Self::Polynomial, // MultilinearPolynomial<M::Scalar> (merged and scaled)
         comm: &Self::Commitment, // Commitment<M::Scalar, UnivariateKzg<M>> (to the original merged poly)
-        point: &Point<F, Self::Polynomial>,// Vec<M::Scalar> (the point 'u')
-        value: &F,       // Claimed value v = f_shifted(u)
+        point: &Point<F, Self::Polynomial>, // Vec<M::Scalar> (the point 'u')
+        value: &F,               // Claimed value v = f_shifted(u)
         rotation: &crate::util::expression::Rotation, // Use the provided Rotation struct
         transcript: &mut impl TranscriptWrite<Self::CommitmentChunk, F>,
     ) -> Result<(), Error> {
         Err(Error::NotImplemented(
-            "prove_shifted_evaluation not implemented".to_string(),
+            "open_shift not implemented".to_string(),
         ))
     }
 
     fn verify_shifted_evaluation(
-        vp: &Self::VerifierParam,                       // ZeromorphKzgVerifierParam<M>
-        comm: &Self::Commitment, // 对原始合并多项式 f 的承诺 C_f
-        point: &Point<F, Self::Polynomial>,// Vec<M::Scalar> (the point 'u')
-        value: &F,       // Claimed value v = f_shifted(u)
+        vp: &Self::VerifierParam,                     // ZeromorphKzgVerifierParam<M>
+        comm: &Self::Commitment,                      // 对原始合并多项式 f 的承诺 C_f
+        point: &Point<F, Self::Polynomial>,           // Vec<M::Scalar> (the point 'u')
+        value: &F,                                    // Claimed value v = f_shifted(u)
         rotation: &crate::util::expression::Rotation, //
         transcript: &mut impl TranscriptRead<Self::CommitmentChunk, F>,
-    ) -> Result<(), Error>
-    {
+    ) -> Result<(), Error> {
         Err(Error::NotImplemented(
             "verify_shifted_evaluation not implemented".to_string(),
         ))

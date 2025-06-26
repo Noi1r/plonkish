@@ -1,4 +1,4 @@
-use crate::util::arithmetic::{PrimeField};
+use crate::util::arithmetic::PrimeField;
 
 /// The MDS matrix
 pub struct MDSMatrix<F: PrimeField, const N: usize>(pub [[F; N]; N]);

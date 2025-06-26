@@ -1,6 +1,5 @@
-use std::fmt::{Debug, Formatter, Result};
 use crate::util::arithmetic::PrimeField;
-
+use std::fmt::{Debug, Formatter, Result};
 
 /// The structure for the trace of the Anemoi-Jive sponge hash function.
 #[derive(Clone)]
@@ -110,7 +109,9 @@ pub struct JiveTrace<F: PrimeField, const N: usize, const NUM_ROUNDS: usize> {
     pub output: F,
 }
 
-impl<F: PrimeField, const N: usize, const NUM_ROUNDS: usize> Default for JiveTrace<F, N, NUM_ROUNDS> {
+impl<F: PrimeField, const N: usize, const NUM_ROUNDS: usize> Default
+    for JiveTrace<F, N, NUM_ROUNDS>
+{
     fn default() -> Self {
         Self {
             input_x: [F::default(); N],
@@ -124,9 +125,7 @@ impl<F: PrimeField, const N: usize, const NUM_ROUNDS: usize> Default for JiveTra
     }
 }
 
-impl<F: PrimeField, const N: usize, const NUM_ROUNDS: usize> Debug
-    for JiveTrace<F, N, NUM_ROUNDS>
-{
+impl<F: PrimeField, const N: usize, const NUM_ROUNDS: usize> Debug for JiveTrace<F, N, NUM_ROUNDS> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.write_str("input_x:\n")?;
         for (i, elem) in self.input_x.iter().enumerate() {
@@ -200,7 +199,7 @@ impl<F: PrimeField, const N: usize, const NUM_ROUNDS: usize> Default
     }
 }
 
-impl <F: PrimeField, const N: usize, const NUM_ROUNDS: usize> Debug
+impl<F: PrimeField, const N: usize, const NUM_ROUNDS: usize> Debug
     for AnemoiStreamCipherTrace<F, N, NUM_ROUNDS>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {

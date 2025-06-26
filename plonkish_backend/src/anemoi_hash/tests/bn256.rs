@@ -1,6 +1,6 @@
+use crate::anemoi_hash::{AnemoiJive, AnemoiJive256, ApplicableMDSMatrix, MDSMatrix};
 use halo2_curves::bn256::Fr;
 use halo2_curves::ff::Field;
-use crate::anemoi_hash::{AnemoiJive256, MDSMatrix, AnemoiJive, ApplicableMDSMatrix};
 
 #[test]
 fn test_jive() {
@@ -10,7 +10,12 @@ fn test_jive() {
     let input_y = [F::from(3u64), F::from(423u64)];
 
     let res = AnemoiJive256::eval_jive_with_trace(&input_x, &input_y);
-    let expected = Fr::from_raw([0xe33385320bcc6d99, 0x486cd984caf856d9, 0x6a45bb27a38a492, 0x2ec9489f7e4ce841]);
+    let expected = Fr::from_raw([
+        0xe33385320bcc6d99,
+        0x486cd984caf856d9,
+        0x6a45bb27a38a492,
+        0x2ec9489f7e4ce841,
+    ]);
     println!("res: {:?}", res);
     // println!("expected: {:?}", expected);
     // assert_eq!(
@@ -154,7 +159,12 @@ fn test_anemoi_variable_length_hash() {
     let res = AnemoiJive256::eval_variable_length_hash(&input);
     assert_eq!(
         res,
-        Fr::from_raw([0x693b9fc1f991ea3f, 0x1e8dafb15f53f4a8, 0xfd49c4e03d4a1890, 0x23a94b65193b777c])
+        Fr::from_raw([
+            0x693b9fc1f991ea3f,
+            0x1e8dafb15f53f4a8,
+            0xfd49c4e03d4a1890,
+            0x23a94b65193b777c
+        ])
     );
 }
 
@@ -352,13 +362,48 @@ fn test_eval_stream_cipher() {
     let input = [F::from(1u64), F::from(2u64), F::from(3u64), F::from(4u64)];
 
     let expect = vec![
-        Fr::from_raw([0x693b9fc1f991ea3f, 0x1e8dafb15f53f4a8, 0xfd49c4e03d4a1890, 0x23a94b65193b777c]),
-        Fr::from_raw([0x4f0aa6eb0fd02d15, 0x975d09329a8f07fa, 0xe3ae25f0b0f7cd8a, 0x2919e5e23fa8375f]),
-        Fr::from_raw([0x1b7e59b76292ebd0, 0xc5340284e743b87b, 0xb4720dd30915a927, 0x106beffce089861d]),
-        Fr::from_raw([0x119f33e679776d79, 0x49474e79dde5291c, 0xff5f103f0933fe6c, 0x1e20968ae319dd17]),
-        Fr::from_raw([0x5de377309b690d61, 0xc9c3e30658358f4e, 0xe4793227d3c61449, 0xd1ec5a315e14379]),
-        Fr::from_raw([0x72bd2b87c7f6acb8, 0xeb7dbdfc975c1979, 0x28164d1414f64fb5, 0x22cb0bf5f87f94c6]),
-        Fr::from_raw([0x79dd5e0ba45b7719, 0x3a2f70db910179a3, 0x2852de0c4d9de397, 0x4a3b83bcf45f0c9]),
+        Fr::from_raw([
+            0x693b9fc1f991ea3f,
+            0x1e8dafb15f53f4a8,
+            0xfd49c4e03d4a1890,
+            0x23a94b65193b777c,
+        ]),
+        Fr::from_raw([
+            0x4f0aa6eb0fd02d15,
+            0x975d09329a8f07fa,
+            0xe3ae25f0b0f7cd8a,
+            0x2919e5e23fa8375f,
+        ]),
+        Fr::from_raw([
+            0x1b7e59b76292ebd0,
+            0xc5340284e743b87b,
+            0xb4720dd30915a927,
+            0x106beffce089861d,
+        ]),
+        Fr::from_raw([
+            0x119f33e679776d79,
+            0x49474e79dde5291c,
+            0xff5f103f0933fe6c,
+            0x1e20968ae319dd17,
+        ]),
+        Fr::from_raw([
+            0x5de377309b690d61,
+            0xc9c3e30658358f4e,
+            0xe4793227d3c61449,
+            0xd1ec5a315e14379,
+        ]),
+        Fr::from_raw([
+            0x72bd2b87c7f6acb8,
+            0xeb7dbdfc975c1979,
+            0x28164d1414f64fb5,
+            0x22cb0bf5f87f94c6,
+        ]),
+        Fr::from_raw([
+            0x79dd5e0ba45b7719,
+            0x3a2f70db910179a3,
+            0x2852de0c4d9de397,
+            0x4a3b83bcf45f0c9,
+        ]),
     ];
 
     let res = AnemoiJive256::eval_stream_cipher(&input, 2);
@@ -373,7 +418,6 @@ fn test_eval_stream_cipher() {
     let res = AnemoiJive256::eval_stream_cipher(&input, 7);
     assert_eq!(res, expect[..7]);
 }
-
 
 #[test]
 fn test_eval_stream_cipher_flatten() {

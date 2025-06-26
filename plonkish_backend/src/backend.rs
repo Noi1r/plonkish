@@ -50,7 +50,9 @@ pub trait PlonkishBackend<F: Field>: Clone + Debug {
         transcript: &mut impl TranscriptWrite<CommitmentChunk<F, Self::Pcs>, F>,
         rng: impl RngCore,
     ) -> Result<(), Error> {
-        Err(Error::NotImplemented("prove_with_shift not implemented".to_string()))
+        Err(Error::NotImplemented(
+            "prove_with_shift not implemented".to_string(),
+        ))
     }
 
     fn verify_with_shift(
@@ -59,9 +61,10 @@ pub trait PlonkishBackend<F: Field>: Clone + Debug {
         transcript: &mut impl TranscriptRead<CommitmentChunk<F, Self::Pcs>, F>,
         rng: impl RngCore,
     ) -> Result<(), Error> {
-        Err(Error::NotImplemented("verify_with_shift not implemented".to_string()))
+        Err(Error::NotImplemented(
+            "verify_with_shift not implemented".to_string(),
+        ))
     }
-
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

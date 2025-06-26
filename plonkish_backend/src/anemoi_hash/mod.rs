@@ -1,12 +1,11 @@
 use crate::util::arithmetic::PrimeField;
-mod traces;
-mod mds;
 mod bn256;
+mod mds;
 mod salts;
+mod traces;
 pub use bn256::*;
 pub use mds::{ApplicableMDSMatrix, MDSMatrix};
 pub use traces::{AnemoiStreamCipherTrace, AnemoiVLHTrace, JiveTrace};
-
 
 #[cfg(test)]
 mod tests;
@@ -59,9 +58,7 @@ where
         } else {
             input.push(F::ONE);
             if input.len() % (2 * N - 1) != 0 {
-                input.extend_from_slice(
-                    &[F::ZERO].repeat(2 * N - 1 - (input.len() % (2 * N - 1))),
-                );
+                input.extend_from_slice(&[F::ZERO].repeat(2 * N - 1 - (input.len() % (2 * N - 1))));
             }
 
             F::ZERO
@@ -105,9 +102,7 @@ where
         } else {
             input.push(F::ONE);
             if input.len() % (2 * N - 1) != 0 {
-                input.extend_from_slice(
-                    &[F::ZERO].repeat(2 * N - 1 - (input.len() % (2 * N - 1))),
-                );
+                input.extend_from_slice(&[F::ZERO].repeat(2 * N - 1 - (input.len() % (2 * N - 1))));
             }
 
             F::ZERO
@@ -246,9 +241,7 @@ where
         } else {
             input.push(F::ONE);
             if input.len() % (2 * N - 1) != 0 {
-                input.extend_from_slice(
-                    &[F::ZERO].repeat(2 * N - 1 - (input.len() % (2 * N - 1))),
-                );
+                input.extend_from_slice(&[F::ZERO].repeat(2 * N - 1 - (input.len() % (2 * N - 1))));
             }
 
             F::ZERO
@@ -319,9 +312,7 @@ where
         } else {
             input.push(F::ONE);
             if input.len() % (2 * N - 1) != 0 {
-                input.extend_from_slice(
-                    &[F::ZERO].repeat(2 * N - 1 - (input.len() % (2 * N - 1))),
-                );
+                input.extend_from_slice(&[F::ZERO].repeat(2 * N - 1 - (input.len() % (2 * N - 1))));
             }
 
             F::ZERO

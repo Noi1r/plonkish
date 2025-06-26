@@ -471,7 +471,7 @@ impl<F: Field> MulAssign<F> for UnivariatePolynomial<F> {
             }
             // 确保零多项式在 Monomial 基下被正确处理
             if self.basis == Monomial {
-               self.truncate_leading_zeros();
+                self.truncate_leading_zeros();
             }
         } else if rhs != F::ONE {
             let rhs_owned = rhs; // 捕获 rhs 以用于闭包
@@ -489,20 +489,28 @@ impl<F: Field> Mul<&UnivariatePolynomial<F>> for &UnivariatePolynomial<F> {
     type Output = UnivariatePolynomial<F>;
 
     fn mul(self, rhs: &UnivariatePolynomial<F>) -> Self::Output {
-        assert_eq!(self.basis, Monomial, "Polynomial multiplication only supported for Monomial basis");
-        assert_eq!(rhs.basis, Monomial, "Polynomial multiplication only supported for Monomial basis");
+        assert_eq!(
+            self.basis, Monomial,
+            "Polynomial multiplication only supported for Monomial basis"
+        );
+        assert_eq!(
+            rhs.basis, Monomial,
+            "Polynomial multiplication only supported for Monomial basis"
+        );
 
         if self.is_empty() || rhs.is_empty() {
-             // 返回 Monomial 基下的零多项式
+            // 返回 Monomial 基下的零多项式
             return UnivariatePolynomial::monomial(Vec::new());
         }
 
         let mut result_coeffs = vec![F::ZERO; self.coeffs.len() + rhs.coeffs.len() - 1];
 
         for i in 0..self.coeffs.len() {
-             if self.coeffs[i].is_zero_vartime() { continue; }
+            if self.coeffs[i].is_zero_vartime() {
+                continue;
+            }
             for j in 0..rhs.coeffs.len() {
-                 // 可选优化: if !rhs.coeffs[j].is_zero_vartime() { }
+                // 可选优化: if !rhs.coeffs[j].is_zero_vartime() { }
                 result_coeffs[i + j] += self.coeffs[i] * rhs.coeffs[j];
             }
         }
@@ -511,12 +519,11 @@ impl<F: Field> Mul<&UnivariatePolynomial<F>> for &UnivariatePolynomial<F> {
     }
 }
 
-
 impl<F: Field> Mul<F> for UnivariatePolynomial<F> {
     type Output = UnivariatePolynomial<F>;
     fn mul(self, rhs: F) -> Self::Output {
-       // 委托给 &Poly * Scalar 实现
-       &self * rhs
+        // 委托给 &Poly * Scalar 实现
+        &self * rhs
     }
 }
 

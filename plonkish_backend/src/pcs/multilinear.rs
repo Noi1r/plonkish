@@ -128,7 +128,12 @@ mod additive {
         },
         Error,
     };
-    use std::{borrow::Cow, collections::{BTreeMap, HashMap}, ops::Deref, ptr::addr_of};
+    use std::{
+        borrow::Cow,
+        collections::{BTreeMap, HashMap},
+        ops::Deref,
+        ptr::addr_of,
+    };
 
     type SumCheck<F> = ClassicSumCheck<CoefficientsProver<F>>;
 
@@ -373,48 +378,61 @@ mod additive {
 
         // --- Part 2: Handle Rotated evaluations ---
         let eval_rotations = evals
-        .iter()
-        .filter(|eval| eval.rotation() != Rotation::cur())
-        .collect_vec();
+            .iter()
+            .filter(|eval| eval.rotation() != Rotation::cur())
+            .collect_vec();
 
         if eval_rotations.is_empty() {
             return Ok(()); // No rotated evaluations to process
         }
 
         // Group evaluations by rotation
-        let mut evals_by_rotation: BTreeMap<Rotation, Vec<&Evaluation_for_shift<F>>> = BTreeMap::new();
+        let mut evals_by_rotation: BTreeMap<Rotation, Vec<&Evaluation_for_shift<F>>> =
+            BTreeMap::new();
         for eval in eval_rotations {
-            evals_by_rotation.entry(eval.rotation()).or_default().push(eval);
+            evals_by_rotation
+                .entry(eval.rotation())
+                .or_default()
+                .push(eval);
         }
 
-            // Process each rotation group
+        // Process each rotation group
         for (rotation, rotation_evals) in evals_by_rotation {
-                // Extract necessary info for this rotation group
-                let polys_rotated: Vec<&MultilinearPolynomial<F>> = rotation_evals.iter().map(|eval| polys[eval.poly()]).collect();
-                let comms_rotated: Vec<&Pcs::Commitment> = rotation_evals.iter().map(|eval| comms[eval.poly()]).collect();
-                // Get references to the values
-                let values_rotated: Vec<&F> = rotation_evals.iter().map(|eval| eval.value()).collect();
+            // Extract necessary info for this rotation group
+            let polys_rotated: Vec<&MultilinearPolynomial<F>> = rotation_evals
+                .iter()
+                .map(|eval| polys[eval.poly()])
+                .collect();
+            let comms_rotated: Vec<&Pcs::Commitment> = rotation_evals
+                .iter()
+                .map(|eval| comms[eval.poly()])
+                .collect();
+            // Get references to the values
+            let values_rotated: Vec<&F> = rotation_evals.iter().map(|eval| eval.value()).collect();
 
-                if polys_rotated.is_empty() {
-                    continue; // Skip if no polynomials for this rotation
-                }
+            if polys_rotated.is_empty() {
+                continue; // Skip if no polynomials for this rotation
+            }
 
-                // Squeeze challenges *only* for combining polynomials within this group
-                let num_rotated = rotation_evals.len();
+            // Squeeze challenges *only* for combining polynomials within this group
+            let num_rotated = rotation_evals.len();
 
-                let ell_rotated = if num_rotated == 1 {
-                    2
-                } else {
-                    num_rotated.next_power_of_two().ilog2() as usize
-                };
+            let ell_rotated = if num_rotated == 1 {
+                2
+            } else {
+                num_rotated.next_power_of_two().ilog2() as usize
+            };
 
-                let challenges_rotated_combine = transcript.squeeze_challenges(ell_rotated);
-                let eq_xt_rotated = MultilinearPolynomial::eq_xy(&challenges_rotated_combine);
-                
-                // Combine polynomials for the current rotation
-                let timer = start_timer(|| format!("merged_polys ({:?})", rotation));
-        
-                let merged_poly_rotated_cow = rotation_evals.iter().zip(eq_xt_rotated.evals().iter()).fold(
+            let challenges_rotated_combine = transcript.squeeze_challenges(ell_rotated);
+            let eq_xt_rotated = MultilinearPolynomial::eq_xy(&challenges_rotated_combine);
+
+            // Combine polynomials for the current rotation
+            let timer = start_timer(|| format!("merged_polys ({:?})", rotation));
+
+            let merged_poly_rotated_cow = rotation_evals
+                .iter()
+                .zip(eq_xt_rotated.evals().iter())
+                .fold(
                     // Initialize with scalar 1 and default (empty) polynomial
                     (F::ONE, Cow::<MultilinearPolynomial<_>>::default()),
                     |mut merged, (eval, eq_xt_i)| {
@@ -431,59 +449,62 @@ mod additive {
                                 merged.0 = F::ONE; // Reset scalar after applying
                             }
                             // Add the new polynomial scaled by its eq_xt_i coefficient
-                            assert_eq!(merged.1.num_vars(), poly_ref.num_vars(), "Mismatched num_vars in merging rotated");
+                            assert_eq!(
+                                merged.1.num_vars(),
+                                poly_ref.num_vars(),
+                                "Mismatched num_vars in merging rotated"
+                            );
                             *merged.1.to_mut() += (*eq_xt_i, poly_ref);
                         }
                         merged
                     },
                 );
-                end_timer(timer);
+            end_timer(timer);
 
+            // Handle the final scalar if it wasn't applied in the loop
+            let (merged_scalar, merged_poly_cow) = merged_poly_rotated_cow;
+            let mut merged_poly_owned = merged_poly_cow.into_owned(); // Get owned version
+            if merged_scalar != F::ONE {
+                merged_poly_owned *= &merged_scalar; // Apply final scalar
+            }
 
-                // Handle the final scalar if it wasn't applied in the loop
-                let (merged_scalar, merged_poly_cow) = merged_poly_rotated_cow;
-                let mut merged_poly_owned = merged_poly_cow.into_owned(); // Get owned version
-                if merged_scalar != F::ONE {
-                    merged_poly_owned *= &merged_scalar; // Apply final scalar
-                }
+            // Compute the combined evaluation value for the merged polynomial
+            // Pass references using eval.value() and copy eq_xt values
+            let merged_value = inner_product(
+                values_rotated.iter().copied(),      // Dereference to get &F
+                eq_xt_rotated[..num_rotated].iter(), // Pass iterator of F
+            );
+            // Apply the overall scalar to the combined value as well
+            // let final_merged_value = merged_value * merged_scalar;
 
-                // Compute the combined evaluation value for the merged polynomial
-                // Pass references using eval.value() and copy eq_xt values
-                let merged_value = inner_product(
-                    values_rotated.iter().copied(), // Dereference to get &F
-                    eq_xt_rotated[..num_rotated].iter(), // Pass iterator of F
-                );
-                // Apply the overall scalar to the combined value as well
-                // let final_merged_value = merged_value * merged_scalar;
+            // Calculate the commitment to the merged polynomial for this rotation using MSM
+            let merged_comm_rotated = if cfg!(feature = "sanity-check") {
+                // Calculate scalars for MSM: eq_xt_i * overall_scalar
+                let scalars = eq_xt_rotated.evals()[..num_rotated]
+                    .iter()
+                    .map(|eq_val| *eq_val * merged_scalar)
+                    .collect_vec();
+                Pcs::Commitment::msm(&scalars, comms_rotated) // Ensure signature matches Additive trait
+            } else {
+                // Should not happen if polys_rotated is not empty, but provide default
+                Pcs::Commitment::default()
+            };
 
-                // Calculate the commitment to the merged polynomial for this rotation using MSM
-                let merged_comm_rotated = if cfg!(feature = "sanity-check") {
-                    // Calculate scalars for MSM: eq_xt_i * overall_scalar
-                    let scalars = eq_xt_rotated.evals()[..num_rotated]
-                        .iter()
-                        .map(|eq_val| *eq_val * merged_scalar)
-                        .collect_vec();
-                    Pcs::Commitment::msm(&scalars, comms_rotated) // Ensure signature matches Additive trait
-                } else {
-                    // Should not happen if polys_rotated is not empty, but provide default
-                    Pcs::Commitment::default()
-                };
+            // --- Apply Zeromorph Logic (Adapted) ---
+            // Defer challenge squeezing (y, z) and a_0 calculation to the PCS function.
+            // Pass the transcript mutable reference.
 
-                // --- Apply Zeromorph Logic (Adapted) ---
-                // Defer challenge squeezing (y, z) and a_0 calculation to the PCS function.
-                // Pass the transcript mutable reference.
-
-                Pcs::prove_shifted_evaluation(
-                    pp,
-                    &merged_poly_owned, // The combined polynomial f (already scaled)
-                    &merged_comm_rotated, // Commitment to f
-                    &points[0], // Target evaluation point u (Vec<F>)
-                    &merged_value, // Target evaluation value v = f_shifted(u) (scaled)
-                    &rotation, // The specific rotation being proven
-                    transcript, // Pass the transcript for internal challenge squeezing
-                )?;
-                /* --- End Placeholder --- */
-            } // End loop over rotations
+            Pcs::open_shift(
+                pp,
+                &merged_poly_owned,   // The combined polynomial f (already scaled)
+                &merged_comm_rotated, // Commitment to f
+                &points[0],           // Target evaluation point u (Vec<F>)
+                &merged_value,        // Target evaluation value v = f_shifted(u) (scaled)
+                &rotation,            // The specific rotation being proven
+                transcript,           // Pass the transcript for internal challenge squeezing
+            )?;
+            /* --- End Placeholder --- */
+        } // End loop over rotations
 
         Ok(())
     }
@@ -570,58 +591,61 @@ mod additive {
 
         Pcs::verify(vp, &commitment_cur, &points[0], &tilde_gs_sum, transcript).is_ok();
 
-
         // --- Part 2: 验证旋转的求值 ---
         let eval_rotations = evals
-        .iter()
-        .filter(|eval| eval.rotation() != Rotation::cur())
-        .collect_vec();
+            .iter()
+            .filter(|eval| eval.rotation() != Rotation::cur())
+            .collect_vec();
 
-       if !eval_rotations.is_empty() {
-           // 按 rotation 分组
-           let mut evals_by_rotation : BTreeMap<Rotation, Vec<&Evaluation_for_shift<F>>> = BTreeMap::new();
-           for eval in eval_rotations {
-               evals_by_rotation.entry(eval.rotation()).or_default().push(eval);
-           }
+        if !eval_rotations.is_empty() {
+            // 按 rotation 分组
+            let mut evals_by_rotation: BTreeMap<Rotation, Vec<&Evaluation_for_shift<F>>> =
+                BTreeMap::new();
+            for eval in eval_rotations {
+                evals_by_rotation
+                    .entry(eval.rotation())
+                    .or_default()
+                    .push(eval);
+            }
 
-           // 逐个处理 rotation 分组
-           for (rotation, rotation_evals) in evals_by_rotation {
-               let num_rotated = rotation_evals.len();
+            // 逐个处理 rotation 分组
+            for (rotation, rotation_evals) in evals_by_rotation {
+                let num_rotated = rotation_evals.len();
 
-               let ell_rotated = if num_rotated == 1 {
+                let ell_rotated = if num_rotated == 1 {
                     2
                 } else {
                     num_rotated.next_power_of_two().ilog2() as usize
                 };
 
-               let challenges_rotated_combine = transcript.squeeze_challenges(ell_rotated);
-               let eq_xt_rotated = MultilinearPolynomial::eq_xy(&challenges_rotated_combine);
+                let challenges_rotated_combine = transcript.squeeze_challenges(ell_rotated);
+                let eq_xt_rotated = MultilinearPolynomial::eq_xy(&challenges_rotated_combine);
 
-               // 计算该分组的合并求值结果
-               let merged_value = inner_product(
-                   rotation_evals.iter().map(|eval| eval.value()), // 输入 &F
-                   eq_xt_rotated.evals()[..num_rotated].iter(), // 需要 F
-               );
+                // 计算该分组的合并求值结果
+                let merged_value = inner_product(
+                    rotation_evals.iter().map(|eval| eval.value()), // 输入 &F
+                    eq_xt_rotated.evals()[..num_rotated].iter(),    // 需要 F
+                );
 
-               // 计算该分组的合并承诺
-               let merged_comm_rotated = {
-                   let scalars = eq_xt_rotated.evals()[..num_rotated].to_vec();
-                   let bases = rotation_evals.iter().map(|eval| comms[eval.poly()]);
-                   Pcs::Commitment::msm(&scalars, bases)
-               };
+                // 计算该分组的合并承诺
+                let merged_comm_rotated = {
+                    let scalars = eq_xt_rotated.evals()[..num_rotated].to_vec();
+                    let bases = rotation_evals.iter().map(|eval| comms[eval.poly()]);
+                    Pcs::Commitment::msm(&scalars, bases)
+                };
 
-               // 调用特定于 Pcs 的移位验证函数
-               Pcs::verify_shifted_evaluation(
+                // 调用特定于 Pcs 的移位验证函数
+                Pcs::verify_shifted_evaluation(
                     vp,
                     &merged_comm_rotated, // 对合并后的 f 的承诺
-                    &points[0],    // 求值点 u
-                    &merged_value,       // 合并后的声称值 v = f_d(u)
-                    &rotation,           // 当前的移位信息
-                    transcript,          // 包含证明数据的 transcript
+                    &points[0],           // 求值点 u
+                    &merged_value,        // 合并后的声称值 v = f_d(u)
+                    &rotation,            // 当前的移位信息
+                    transcript,           // 包含证明数据的 transcript
                 )?;
-           }
-       }
+            }
+        }
 
-       Ok(())
-   }
+        Ok(())
+    }
 }

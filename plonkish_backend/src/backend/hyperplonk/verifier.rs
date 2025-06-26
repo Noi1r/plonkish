@@ -94,8 +94,6 @@ pub(crate) fn verify_sum_check<F: PrimeField>(
     Ok((points(&pcs_query, &x), evals))
 }
 
-
-
 #[allow(clippy::type_complexity)]
 pub(super) fn verify_zero_check_with_shift<F: PrimeField>(
     num_vars: usize,
@@ -115,7 +113,6 @@ pub(super) fn verify_zero_check_with_shift<F: PrimeField>(
         transcript,
     )
 }
-
 
 #[allow(clippy::type_complexity)]
 pub(crate) fn verify_sum_check_with_shift<F: PrimeField>(
@@ -141,23 +138,25 @@ pub(crate) fn verify_sum_check_with_shift<F: PrimeField>(
 
     let pcs_query = pcs_query(expression, instances.len());
 
-    let evals = pcs_query.iter().map(|query| { 
-        let eval = transcript.read_field_elements(1).unwrap(); 
-        (*query, eval[0])
-    }).collect_vec();
+    let evals = pcs_query
+        .iter()
+        .map(|query| {
+            let eval = transcript.read_field_elements(1).unwrap();
+            (*query, eval[0])
+        })
+        .collect_vec();
 
-
-    let evals: BTreeMap<Query, F> = instance_evals::<_, Lexical>(num_vars, expression, instances, &x)
-        .into_iter()
-        .chain(evals)
-        .collect();
+    let evals: BTreeMap<Query, F> =
+        instance_evals::<_, Lexical>(num_vars, expression, instances, &x)
+            .into_iter()
+            .chain(evals)
+            .collect();
 
     if evaluate::<F, Lexical>(expression, num_vars, &evals, challenges, &[y], &x) != x_eval {
         return Err(Error::InvalidSnark(
             "Unmatched between sum_check output and query evaluation".to_string(),
         ));
     }
-
 
     let evals = pcs_query
         .iter()
@@ -166,7 +165,6 @@ pub(crate) fn verify_sum_check_with_shift<F: PrimeField>(
 
     Ok((vec![x], evals))
 }
-
 
 pub(crate) fn instance_evals<F: PrimeField, R: Rotatable + From<usize>>(
     num_vars: usize,

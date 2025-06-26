@@ -2,7 +2,8 @@ use crate::{
     backend::hyperplonk::verifier::{pcs_query, point_offset, points},
     pcs::{Evaluation, Evaluation_for_shift},
     piop::sum_check::{
-        classic::{ClassicSumCheck, EvaluationsProver}, SumCheck, VirtualPolynomial
+        classic::{ClassicSumCheck, EvaluationsProver},
+        SumCheck, VirtualPolynomial,
     },
     poly::multilinear::{rotation_eval, MultilinearPolynomial},
     util::{
@@ -394,8 +395,6 @@ pub(crate) fn prove_sum_check<F: PrimeField>(
     Ok((points(&pcs_query, &x), evals))
 }
 
-
-
 #[allow(clippy::type_complexity)]
 pub(super) fn prove_zero_check_with_shift<F: PrimeField>(
     num_instance_poly: usize,
@@ -416,8 +415,6 @@ pub(super) fn prove_zero_check_with_shift<F: PrimeField>(
     )
 }
 
-
-
 #[allow(clippy::type_complexity)]
 pub(crate) fn prove_sum_check_with_shift<F: PrimeField>(
     num_instance_poly: usize,
@@ -428,7 +425,6 @@ pub(crate) fn prove_sum_check_with_shift<F: PrimeField>(
     y: Vec<F>,
     transcript: &mut impl FieldTranscriptWrite<F>,
 ) -> Result<(Vec<Vec<F>>, Vec<Evaluation_for_shift<F>>), Error> {
-
     let num_vars = polys[0].num_vars();
     let ys = [y];
     let virtual_poly = VirtualPolynomial::new(expression, polys.to_vec(), &challenges, &ys);
@@ -446,12 +442,13 @@ pub(crate) fn prove_sum_check_with_shift<F: PrimeField>(
 
     let timer = start_timer(|| format!("evals-{}", pcs_query.len()));
 
-    let evals = pcs_query.iter()
-        .map(|query| Evaluation_for_shift::new(query.poly(), query.rotation(), evals[query])).collect_vec();
+    let evals = pcs_query
+        .iter()
+        .map(|query| Evaluation_for_shift::new(query.poly(), query.rotation(), evals[query]))
+        .collect_vec();
     end_timer(timer);
-    
 
     transcript.write_field_elements(evals.iter().map(Evaluation_for_shift::value))?;
-    
+
     Ok((vec![x], evals))
 }

@@ -27,8 +27,8 @@ use crate::{
 };
 use prover::prove_zero_check_with_shift;
 use rand::RngCore;
-use verifier::verify_zero_check_with_shift;
 use std::{fmt::Debug, hash::Hash, iter, marker::PhantomData};
+use verifier::verify_zero_check_with_shift;
 
 // pub(crate) mod anemoi;
 pub(crate) mod preprocessor;
@@ -499,12 +499,11 @@ where
 
         Ok(())
     }
-
+}
+impl<Pcs> WitnessEncoding for HyperPlonk<Pcs> {
+    fn row_mapping(k: usize) -> Vec<usize> {
+        Lexical::new(k).usable_indices()
     }
-    impl<Pcs> WitnessEncoding for HyperPlonk<Pcs> {
-        fn row_mapping(k: usize) -> Vec<usize> {
-            Lexical::new(k).usable_indices()
-        }
 }
 
 #[cfg(test)]
@@ -512,7 +511,11 @@ mod test {
     use crate::{
         backend::{
             hyperplonk::{
-                util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit,rand_index_test_circuit , rand_anemoi_hash_circuit_with_flatten, rand_jive_crh_circuit, rand_merkle_membership_proof_circuit},
+                util::{
+                    rand_anemoi_hash_circuit_with_flatten, rand_index_test_circuit,
+                    rand_jive_crh_circuit, rand_merkle_membership_proof_circuit,
+                    rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit,
+                },
                 HyperPlonk,
             },
             test::run_plonkish_backend,
@@ -525,13 +528,16 @@ mod test {
             univariate::UnivariateKzg,
         },
         util::{
-            code::BrakedownSpec6, expression::rotate::{BinaryField, Lexical}, hash::Keccak256,
-            test::seeded_std_rng, transcript::Keccak256Transcript,
+            code::BrakedownSpec6,
+            expression::rotate::{BinaryField, Lexical},
+            hash::Keccak256,
+            test::seeded_std_rng,
+            transcript::Keccak256Transcript,
         },
     };
     use halo2_curves::{
         bn256::{self, Bn256},
-        grumpkin
+        grumpkin,
     };
 
     macro_rules! tests {
