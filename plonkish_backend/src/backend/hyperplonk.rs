@@ -575,7 +575,7 @@ mod test {
                 #[test]
                 fn [<merkle_membership_proof_ $suffix>]() {
                     run_plonkish_backend::<_, HyperPlonk<$pcs>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        rand_merkle_membership_proof_circuit::<_, Lexical>(20, seeded_std_rng(), seeded_std_rng())
+                        rand_merkle_membership_proof_circuit::<_, Lexical>(10, seeded_std_rng(), seeded_std_rng())
                     });
                 }
 

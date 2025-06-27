@@ -1,6 +1,18 @@
-# Plonkish
+# HyperPlonk with Zeromorph
 
-Research focused repository on plonkish arithmetization.
+This repository is a fork of [plonkish](https://github.com/han0110/plonkish) with Zeromorph shift implementation.
+
+In the original plonkish, the shift is implemented by using the method in [HyperPlonk](https://eprint.iacr.org/2022/1355.pdf), which will result in exponential cost(requires an exponential number of opens), with the shift approach in [Zeromorph](https://eprint.iacr.org/2023/917.pdf) the cost is reduced to just one more commitment(plonkish_backend/src/pcs/multilinear/zeromorph.rs).
+
+We also implement the [anemoi hash and jive crh](https://eprint.iacr.org/2023/1043.pdf) circuits in the plonkish backend(plonkish_backend/src/backend/hyperplonk/util.rs).
+
+[TODO] because of the shift approach requirement, the other pcs are not supported yet. Only the zeromorph pcs is supported.
+
+## How to run
+
+```sh
+cargo test --release --package plonkish_backend --lib -- backend::hyperplonk::test::merkle_membership_proof_zeromorph_kzg --exact --show-output
+```
 
 ## Benchmark
 
