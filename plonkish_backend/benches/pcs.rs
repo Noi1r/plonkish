@@ -13,7 +13,7 @@ use plonkish_backend::{
     util::{
         arithmetic::PrimeField,
         test::std_rng,
-        transcript::{Keccak256Transcript, TranscriptWrite},
+        transcript::{InMemoryTranscript, Keccak256Transcript, TranscriptWrite},
     },
 };
 use std::{any::type_name, io::Cursor, ops::Range};

@@ -1,55 +1,123 @@
 # HyperPlonk with Zeromorph
 
-This repository is a fork of [plonkish](https://github.com/han0110/plonkish) with Zeromorph shift implementation.
 
-In the original plonkish, the shift is implemented by using the method in [HyperPlonk](https://eprint.iacr.org/2022/1355.pdf), which will result in exponential cost(requires an exponential number of opens), with the shift approach in [Zeromorph](https://eprint.iacr.org/2023/917.pdf) the cost is reduced to just one more commitment(plonkish_backend/src/pcs/multilinear/zeromorph.rs).
+This is a fork of [plonkish](https://github.com/han0110/plonkish) implementing HyperPlonk with Zeromorph shift optimization. The repository focuses on zero-knowledge proof systems, specifically optimizing the shift operations in HyperPlonk using the Zeromorph approach to reduce exponential costs to just one additional commitment.
 
-We also implement the [anemoi hash and jive crh](https://eprint.iacr.org/2023/1043.pdf) circuits in the plonkish backend(plonkish_backend/src/backend/hyperplonk/util.rs).
+Key implementations:
+- **Zeromorph PCS**: `plonkish_backend/src/pcs/multilinear/zeromorph.rs` - Main polynomial commitment scheme with shift support
+- **HyperPlonk Backend**: `plonkish_backend/src/backend/hyperplonk/` - Complete HyperPlonk implementation
+- **Anemoi Hash**: `plonkish_backend/src/anemoi_hash/` and `plonkish_backend/src/backend/hyperplonk/util.rs` - Anemoi hash and jive CRH circuits
 
-[TODO] because of the shift approach requirement, the other pcs are not supported yet. Only the zeromorph pcs is supported.
+## Commands
 
-## How to run
+### Testing
+```bash
+# Run specific test with output
+cargo test --release --package plonkish_backend --lib -- backend::hyperplonk::test::merkle_membership_proof_zeromorph_kzg --exact --show-output 
 
-```sh
-cargo test --release --package plonkish_backend --lib -- backend::hyperplonk::test::merkle_membership_proof_zeromorph_kzg --exact --show-output
+# Run all tests
+cargo test --release
 ```
 
-## Benchmark
-
-### Proof systems
-
-On different proof systems with KZG polynomial commitment scheme.
-
-```sh
-Usage: cargo bench --bench proof_system -- [OPTIONS]
-
-Options:
-  --system <SYSTEM>    Proof system(s) to run. [possible values: hyperplonk, halo2, espresso_hyperplonk]
-  --circuit <CIRCUIT>  Circuit to run. [possible values: vanilla_plonk, aggregation]
-  --k <K>              (Range of) log number of rows.
-```
-
-For example to compare different proof systems on vanilla PLONK, run:
-
-```sh
+### Benchmarking
+```bash
+# Basic benchmark for proof systems
 cargo bench --bench proof_system -- \
     --system hyperplonk \
     --system halo2 \
     --system espresso_hyperplonk \
     --circuit vanilla_plonk \
     --k 20..24
-```
 
-Then the proving time (in millisecond) will be written to `target/bench/{hyperplonk,halo2,espresso_hyperplonk}` respectively.
-
-To further see cost breakdown of proving time without witness collecting time, run the same bench commanad with an extra cargo flag `--features timer`, then pipe the output to plotter `cargo run plotter -- -`, and the result will be rendered in `target/bench`. For example:
-
-```sh
-cargo bench --bench proof_system --features timer -- ... \
+# Benchmark with timing breakdown (requires gnuplot)
+cargo bench --bench proof_system --features timer -- \
+    --system hyperplonk \
+    --circuit vanilla_plonk \
+    --k 20..24 \
   | cargo run plotter -- -
+
+# PCS benchmarks
+cargo bench --bench pcs
+
+# Zero check benchmarks  
+cargo bench --bench zero_check
 ```
 
-Note that `plotter` requires `gnuplot` installed already.
+### Build Profiles
+```bash
+# Release build
+cargo build --release
+
+# Flamegraph profiling build
+cargo build --profile flamegraph
+```
+
+## Architecture
+
+### Core Components
+
+1. **Backend Layer** (`plonkish_backend/src/backend/`)
+   - `PlonkishBackend` trait: Core interface for proof systems
+   - `HyperPlonk`: Main implementation with shift support via `prove_with_shift()` and `verify_with_shift()`
+   - Preprocessor, Prover, and Verifier modules
+
+2. **Polynomial Commitment Schemes** (`plonkish_backend/src/pcs/`)
+   - `PolynomialCommitmentScheme` trait with shift extensions (`open_shift`, `verify_shifted_evaluation`)
+   - **Zeromorph**: Primary PCS implementation supporting shifts
+   - Univariate KZG: Underlying commitment scheme
+
+3. **Frontend Layer** (`plonkish_backend/src/frontend/`)
+   - Halo2 frontend integration (feature-gated)
+   - Circuit abstraction via `PlonkishCircuit` trait
+
+4. **Polynomial Representations** (`plonkish_backend/src/poly/`)
+   - `MultilinearPolynomial`: Main polynomial type
+   - `UnivariatePolynomial`: For KZG operations
+   - Rotation evaluation support in `poly/multilinear.rs`
+
+5. **Utilities** (`plonkish_backend/src/util/`)
+   - Arithmetic operations (FFT, MSM)
+   - Expression evaluation and rotation handling
+   - Transcript management
+   - Parallel processing utilities
+
+### Key Shift Implementation
+
+The repository's main contribution is the shift optimization:
+- **Problem**: Original HyperPlonk shift requires exponential number of opens
+- **Solution**: Zeromorph-based shift reduces cost to one additional commitment
+- **Implementation**: 
+  - `open_shift()` and `verify_shifted_evaluation()` in Zeromorph PCS
+  - `prove_with_shift()` and `verify_with_shift()` in HyperPlonk backend
+  - `Evaluation_for_shift` struct for batch operations
+
+### Circuit Information Structure
+
+`PlonkishCircuitInfo` contains:
+- `k`: Circuit size (2^k)
+- `num_instances`: Instance polynomial counts
+- `preprocess_polys`: Preprocessed polynomials
+- `num_witness_polys`: Witness polynomials per phase
+- `constraints`: Circuit constraints as expressions
+- `lookups`: Vector lookup arguments
+- `permutations`: Permutation arguments
+
+## Development Notes
+
+- **Workspace Structure**: Two main packages - `plonkish_backend` (core) and `benchmark` (performance testing)
+- **Feature Flags**: 
+  - `timer`: Enables timing instrumentation
+  - `parallel`: Enables rayon parallelization
+  - `frontend-halo2`: Enables Halo2 circuit frontend
+  - `benchmark`: Required for benchmark builds
+- **Testing**: Most critical tests are in `backend::hyperplonk::test` module
+- **Dependencies**: Uses custom forks of halo2 and other ZK libraries for compatibility
+
+## Limitations
+
+- Only Zeromorph PCS is currently supported due to shift requirements
+- Other PCS implementations are disabled until shift support is added
+- Requires specific versions of halo2 and related libraries from custom forks
 
 ## Acknowledgements
 
