@@ -1,5 +1,4 @@
 use crate::{
-    anemoi_hash::{AnemoiJive, AnemoiJive256, ApplicableMDSMatrix, MDSMatrix},
     backend::{
         hyperplonk::{
             preprocessor::{compose, permutation_polys},
@@ -22,7 +21,6 @@ use crate::{
     },
 };
 
-use halo2_curves::bn256::Fr;
 use halo2_curves::ff::Field;
 use num_integer::Integer;
 use rand::RngCore;

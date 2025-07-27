@@ -11,16 +11,8 @@ use crate::{
     Error,
 };
 
-mod hyrax;
-pub(super) mod ipa;
 mod kzg;
 
-pub use hyrax::{
-    UnivariateHyrax, UnivariateHyraxCommitment, UnivariateHyraxParam, UnivariateHyraxVerifierParam,
-};
-pub use ipa::{
-    UnivariateIpa, UnivariateIpaCommitment, UnivariateIpaParam, UnivariateIpaVerifierParam,
-};
 pub use kzg::{
     UnivariateKzg, UnivariateKzgCommitment, UnivariateKzgParam, UnivariateKzgProverParam,
     UnivariateKzgVerifierParam,

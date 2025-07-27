@@ -17,8 +17,6 @@ use crate::{
     Error,
 };
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::fs::OpenOptions;
-use std::io::Write;
 
 #[allow(clippy::type_complexity)]
 pub(super) fn verify_zero_check<F: PrimeField>(

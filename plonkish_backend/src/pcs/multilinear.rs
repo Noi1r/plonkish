@@ -4,23 +4,8 @@ use crate::{
     Error,
 };
 
-mod brakedown;
-mod gemini;
-mod hyrax;
-mod ipa;
-mod kzg;
 mod zeromorph;
 
-pub use brakedown::{
-    MultilinearBrakedown, MultilinearBrakedownCommitment, MultilinearBrakedownParam,
-};
-pub use gemini::Gemini;
-pub use hyrax::{MultilinearHyrax, MultilinearHyraxCommitment, MultilinearHyraxParam};
-pub use ipa::{MultilinearIpa, MultilinearIpaCommitment, MultilinearIpaParam};
-pub use kzg::{
-    MultilinearKzg, MultilinearKzgCommitment, MultilinearKzgParam, MultilinearKzgProverParam,
-    MultilinearKzgVerifierParam,
-};
 pub use zeromorph::{Zeromorph, ZeromorphKzgProverParam, ZeromorphKzgVerifierParam};
 
 fn validate_input<'a, F: Field>(

@@ -5,7 +5,7 @@ use crate::{
         classic::{ClassicSumCheck, EvaluationsProver},
         SumCheck, VirtualPolynomial,
     },
-    poly::multilinear::{rotation_eval, MultilinearPolynomial},
+    poly::multilinear::MultilinearPolynomial,
     util::{
         arithmetic::{div_ceil, steps_by, sum, BatchInvert, PrimeField},
         chain, end_timer,

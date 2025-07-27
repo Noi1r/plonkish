@@ -521,10 +521,7 @@ mod test {
             test::run_plonkish_backend,
         },
         pcs::{
-            multilinear::{
-                Gemini, MultilinearBrakedown, MultilinearHyrax, MultilinearIpa, MultilinearKzg,
-                Zeromorph,
-            },
+            multilinear::Zeromorph,
             univariate::UnivariateKzg,
         },
         util::{
@@ -592,10 +589,5 @@ mod test {
         };
     }
 
-    tests!(brakedown, MultilinearBrakedown<bn256::Fr, Keccak256, BrakedownSpec6>);
-    tests!(hyrax, MultilinearHyrax<grumpkin::G1Affine>, 5..16);
-    tests!(ipa, MultilinearIpa<grumpkin::G1Affine>);
-    tests!(kzg, MultilinearKzg<Bn256>);
-    tests!(gemini_kzg, Gemini<UnivariateKzg<Bn256>>);
     tests!(zeromorph_kzg, Zeromorph<UnivariateKzg<Bn256>>, 4..5);
 }

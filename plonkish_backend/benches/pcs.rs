@@ -2,23 +2,18 @@ use criterion::{
     black_box, criterion_group, criterion_main, measurement::Measurement, BenchmarkGroup,
     BenchmarkId, Criterion,
 };
-use halo2_curves::bn256::{Bn256, Fr, G1Affine};
+use halo2_curves::bn256::Bn256;
 use plonkish_backend::{
     pcs::{
-        multilinear::{
-            Gemini, MultilinearBrakedown, MultilinearHyrax, MultilinearIpa, MultilinearKzg,
-            Zeromorph,
-        },
+        multilinear::Zeromorph,
         univariate::UnivariateKzg,
         Point, PolynomialCommitmentScheme,
     },
     poly::Polynomial,
     util::{
         arithmetic::PrimeField,
-        code::BrakedownSpec6,
-        hash::Keccak256,
         test::std_rng,
-        transcript::{InMemoryTranscript, Keccak256Transcript, TranscriptWrite},
+        transcript::{Keccak256Transcript, TranscriptWrite},
     },
 };
 use std::{any::type_name, io::Cursor, ops::Range};
@@ -103,11 +98,6 @@ fn bench_commit(c: &mut Criterion) {
     let mut group = c.benchmark_group("commit");
     group.sample_size(10);
 
-    commit::<_, MultilinearBrakedown<Fr, Keccak256, BrakedownSpec6>>(&mut group);
-    commit::<_, MultilinearKzg<Bn256>>(&mut group);
-    commit::<_, MultilinearIpa<G1Affine>>(&mut group);
-    commit::<_, MultilinearHyrax<G1Affine>>(&mut group);
-    commit::<_, Gemini<UnivariateKzg<Bn256>>>(&mut group);
     commit::<_, Zeromorph<UnivariateKzg<Bn256>>>(&mut group);
 }
 
@@ -115,11 +105,6 @@ fn bench_open(c: &mut Criterion) {
     let mut group = c.benchmark_group("open");
     group.sample_size(10);
 
-    open::<_, MultilinearBrakedown<Fr, Keccak256, BrakedownSpec6>>(&mut group);
-    open::<_, MultilinearKzg<Bn256>>(&mut group);
-    open::<_, MultilinearIpa<G1Affine>>(&mut group);
-    open::<_, MultilinearHyrax<G1Affine>>(&mut group);
-    open::<_, Gemini<UnivariateKzg<Bn256>>>(&mut group);
     open::<_, Zeromorph<UnivariateKzg<Bn256>>>(&mut group);
 }
 

@@ -18,7 +18,7 @@ use plonkish_backend::{
     backend::{self, PlonkishBackend, PlonkishCircuit, WitnessEncoding},
     frontend::halo2::{circuit::VanillaPlonk, CircuitExt, Halo2Circuit},
     halo2_curves::bn256::{Bn256, Fr},
-    pcs::{multilinear, univariate, CommitmentChunk},
+    pcs::{multilinear::Zeromorph, univariate::UnivariateKzg, CommitmentChunk},
     util::{
         end_timer, start_timer,
         test::std_rng,
@@ -81,14 +81,12 @@ where
 }
 
 fn bench_hyperplonk<C: CircuitExt<Fr>>(k: usize) {
-    type GeminiKzg = multilinear::Gemini<univariate::UnivariateKzg<Bn256>>;
-    type HyperPlonk = backend::hyperplonk::HyperPlonk<GeminiKzg>;
+    type HyperPlonk = backend::hyperplonk::HyperPlonk<Zeromorph<UnivariateKzg<Bn256>>>;
     bench_plonkish_backend::<HyperPlonk, C>(System::HyperPlonk, k)
 }
 
 fn bench_unihyperplonk<C: CircuitExt<Fr>>(k: usize) {
-    type UnivariateKzg = univariate::UnivariateKzg<Bn256>;
-    type UniHyperPlonk = backend::unihyperplonk::UniHyperPlonk<UnivariateKzg, true>;
+    type UniHyperPlonk = backend::unihyperplonk::UniHyperPlonk<UnivariateKzg<Bn256>, true>;
     bench_plonkish_backend::<UniHyperPlonk, C>(System::UniHyperPlonk, k)
 }
 

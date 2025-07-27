@@ -29,8 +29,6 @@ use std::{
 
 #[cfg(any(test, feature = "benchmark"))]
 pub mod circuit;
-#[cfg(test)]
-mod test;
 
 pub trait CircuitExt<F: Field>: Circuit<F> {
     fn rand(_k: usize, _rng: impl RngCore) -> Self
