@@ -701,7 +701,7 @@ mod test {
         util::{
             arithmetic::Field,
             expression::{
-                rotate::{BinaryField, Rotatable},
+                rotate::{BinaryField, Lexical, Rotatable},
                 Rotation,
             },
             test::rand_vec,
@@ -743,7 +743,7 @@ mod test {
     fn evaluate_for_rotation() {
         let mut rng = OsRng;
         for num_vars in 1..16 {
-            let bf = BinaryField::new(num_vars);
+            let bf = Lexical::new(num_vars);
             let rotate = |f: &Vec<Fr>| {
                 (0..1 << num_vars)
                     .map(|idx| f[bf.rotate(idx, Rotation::next())])

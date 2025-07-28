@@ -2,7 +2,6 @@
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-blue.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](#)
 
 **Plonkish** is a high-performance implementation of the HyperPlonk zero-knowledge proof system with Zeromorph shift optimization. This repository focuses on zero-knowledge proof systems, specifically optimizing the shift operations in HyperPlonk using the Zeromorph approach to reduce exponential costs to just one additional commitment.
 
@@ -18,9 +17,6 @@ cargo build --release
 
 # Run tests
 cargo test --release
-
-# Run benchmarks
-cargo bench --bench proof_system
 ```
 
 ## 📋 Table of Contents
@@ -41,7 +37,6 @@ cargo bench --bench proof_system
 - **Zeromorph PCS**: Advanced polynomial commitment scheme with shift support
 - **Shift Optimization**: Reduces exponential shift costs to a single additional commitment
 - **Anemoi Hash Integration**: Efficient hash function implementation for Merkle trees
-- **Multiple Circuit Types**: Support for various zero-knowledge circuits
 
 
 
@@ -91,19 +86,27 @@ use halo2_curves::bn256::Bn256;
 // Initialize the proving system
 type ProofSystem = HyperPlonk<Zeromorph<UnivariateKzg<Bn256>>>;
 
+let circuit = create_circuit();
+let circuit_info = circuit.circuit_info().unwrap();
+let instances = circuit.instances();
+
 // Setup phase
-let circuit_info = create_circuit_info();
 let param = ProofSystem::setup(&circuit_info, &mut rng)?;
 let (prover_param, verifier_param) = ProofSystem::preprocess(&param, &circuit_info)?;
 
 // Proving phase
-let circuit = create_circuit();
-let mut transcript = Keccak256Transcript::new();
-ProofSystem::prove(&prover_param, &circuit, &mut transcript, &mut rng)?;
+let proof = sample(system, k, || {
+        let mut transcript = Keccak256Transcript::default();
+        ProofSystem::prove(&prover_param, &circuit, &mut transcript, &mut rng).unwrap();
+        transcript.into_proof()
+    });
 
 // Verification phase
-let mut transcript = Keccak256Transcript::new();
-ProofSystem::verify(&verifier_param, &instances, &mut transcript, &mut rng)?;
+let accept = {
+        let mut transcript = Keccak256Transcript::from_proof((), proof.as_slice());
+        ProofSystem::verify(&verifier_param, instances, &mut transcript, std_rng()).is_ok()
+    };
+assert!(accept);
 ```
 
 ### Circuit Examples
@@ -147,37 +150,10 @@ cargo test --release --package plonkish_backend --lib -- backend::hyperplonk::te
 cargo test --release
 ```
 
-### Benchmarking
-```bash
-# Basic benchmark for proof systems
-cargo bench --bench proof_system -- \
-    --system hyperplonk \
-    --system halo2 \
-    --system espresso_hyperplonk \
-    --circuit vanilla_plonk \
-    --k 20..24
-
-# Benchmark with timing breakdown (requires gnuplot)
-cargo bench --bench proof_system --features timer -- \
-    --system hyperplonk \
-    --circuit vanilla_plonk \
-    --k 20..24 \
-  | cargo run plotter -- -
-
-# PCS benchmarks
-cargo bench --bench pcs
-
-# Zero check benchmarks  
-cargo bench --bench zero_check
-```
-
 ### Build Profiles
 ```bash
 # Release build
 cargo build --release
-
-# Flamegraph profiling build
-cargo build --profile flamegraph
 ```
 
 ## Architecture
@@ -222,6 +198,7 @@ The repository's main contribution is the shift optimization:
 ### Circuit Information Structure
 
 `PlonkishCircuitInfo` contains:
+
 - `k`: Circuit size (2^k)
 - `num_instances`: Instance polynomial counts
 - `preprocess_polys`: Preprocessed polynomials
@@ -232,12 +209,11 @@ The repository's main contribution is the shift optimization:
 
 ## Development Notes
 
-- **Workspace Structure**: Two main packages - `plonkish_backend` (core) and `benchmark` (performance testing)
+- **Workspace Structure**: plonkish_backend
 - **Feature Flags**: 
   - `timer`: Enables timing instrumentation
   - `parallel`: Enables rayon parallelization
   - `frontend-halo2`: Enables Halo2 circuit frontend
-  - `benchmark`: Required for benchmark builds
 - **Testing**: Most critical tests are in `backend::hyperplonk::test` module
 - **Dependencies**: Uses custom forks of halo2 and other ZK libraries for compatibility
 

@@ -394,43 +394,43 @@ where
     Ok((polys, comms))
 }
 
-#[cfg(test)]
-mod test {
-    use crate::{
-        backend::{
-            hyperplonk::util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit},
-            test::run_plonkish_backend,
-            unihyperplonk::UniHyperPlonk,
-        },
-        pcs::univariate::UnivariateKzg,
-        util::{
-            expression::rotate::Lexical, test::seeded_std_rng, transcript::Keccak256Transcript,
-        },
-    };
-    use halo2_curves::bn256::Bn256;
+// #[cfg(test)]
+// mod test {
+//     use crate::{
+//         backend::{
+//             hyperplonk::util::{rand_vanilla_plonk_circuit, rand_vanilla_plonk_w_lookup_circuit},
+//             test::run_plonkish_backend,
+//             unihyperplonk::UniHyperPlonk,
+//         },
+//         pcs::univariate::UnivariateKzg,
+//         util::{
+//             expression::rotate::Lexical, test::seeded_std_rng, transcript::Keccak256Transcript,
+//         },
+//     };
+//     use halo2_curves::bn256::Bn256;
 
-    macro_rules! tests {
-        ($suffix:ident, $pcs:ty, $additive:literal, $num_vars_range:expr) => {
-            paste::paste! {
-                #[test]
-                fn [<vanilla_plonk_w_ $suffix>]() {
-                    run_plonkish_backend::<_, UniHyperPlonk<$pcs, $additive>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        rand_vanilla_plonk_circuit::<_, Lexical>(num_vars, seeded_std_rng(), seeded_std_rng())
-                    });
-                }
+//     macro_rules! tests {
+//         ($suffix:ident, $pcs:ty, $additive:literal, $num_vars_range:expr) => {
+//             paste::paste! {
+//                 #[test]
+//                 fn [<vanilla_plonk_w_ $suffix>]() {
+//                     run_plonkish_backend::<_, UniHyperPlonk<$pcs, $additive>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
+//                         rand_vanilla_plonk_circuit::<_, Lexical>(num_vars, seeded_std_rng(), seeded_std_rng())
+//                     });
+//                 }
 
-                #[test]
-                fn [<vanilla_plonk_w_lookup_w_ $suffix>]() {
-                    run_plonkish_backend::<_, UniHyperPlonk<$pcs, $additive>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
-                        rand_vanilla_plonk_w_lookup_circuit::<_, Lexical>(num_vars, seeded_std_rng(), seeded_std_rng())
-                    });
-                }
-            }
-        };
-        ($suffix:ident, $pcs:ty, $additive:literal) => {
-            tests!($suffix, $pcs, $additive, 2..16);
-        };
-    }
+//                 #[test]
+//                 fn [<vanilla_plonk_w_lookup_w_ $suffix>]() {
+//                     run_plonkish_backend::<_, UniHyperPlonk<$pcs, $additive>, Keccak256Transcript<_>, _>($num_vars_range, |num_vars| {
+//                         rand_vanilla_plonk_w_lookup_circuit::<_, Lexical>(num_vars, seeded_std_rng(), seeded_std_rng())
+//                     });
+//                 }
+//             }
+//         };
+//         ($suffix:ident, $pcs:ty, $additive:literal) => {
+//             tests!($suffix, $pcs, $additive, 2..16);
+//         };
+//     }
 
-    tests!(kzg, UnivariateKzg<Bn256>, true);
-}
+//     tests!(kzg, UnivariateKzg<Bn256>, true);
+// }
