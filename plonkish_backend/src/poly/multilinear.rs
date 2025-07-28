@@ -211,7 +211,7 @@ impl<F: Field> MultilinearPolynomial<F> {
         let abs_d = rotation.distance();
         let n_evals = 1 << self.num_vars();
 
-        // 1. 旋转求值列表
+        // 1. Evaluate rotation list
         let mut rotated_evals = self.evals().to_vec();
         if signed_d > 0 {
             rotated_evals.rotate_left(abs_d);
@@ -220,10 +220,10 @@ impl<F: Field> MultilinearPolynomial<F> {
             rotated_evals.rotate_right(abs_d);
         }
 
-        // 2. 构造旋转后的多项式
+        // 2. Construct rotated polynomial
         let poly_rotated = MultilinearPolynomial::new(rotated_evals);
 
-        // 3. 对旋转后的多项式在原始点 point 求值
+        // 3. Evaluate rotated polynomial at original point
         vec![poly_rotated.evaluate(x)]
     }
 

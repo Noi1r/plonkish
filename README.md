@@ -1,12 +1,140 @@
-# HyperPlonk with Zeromorph
+# Plonkish: HyperPlonk with Zeromorph Shift Optimization
+
+[![Rust](https://img.shields.io/badge/rust-1.70+-blue.svg)](https://www.rust-lang.org)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](#)
+
+**Plonkish** is a high-performance implementation of the HyperPlonk zero-knowledge proof system with Zeromorph shift optimization. This repository focuses on zero-knowledge proof systems, specifically optimizing the shift operations in HyperPlonk using the Zeromorph approach to reduce exponential costs to just one additional commitment.
+
+## 🚀 Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/Noi1r/plonkish.git
+cd plonkish
+
+# Build the project
+cargo build --release
+
+# Run tests
+cargo test --release
+
+# Run benchmarks
+cargo bench --bench proof_system
+```
+
+## 📋 Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Documentation](#documentation)
+- [Architecture](#architecture)
+- [Benchmarks](#benchmarks)
+- [Contributing](#contributing)
+- [License](#license)
+
+## ✨ Features
+
+### Core Features
+- **HyperPlonk Implementation**: Complete implementation of the HyperPlonk proving system
+- **Zeromorph PCS**: Advanced polynomial commitment scheme with shift support
+- **Shift Optimization**: Reduces exponential shift costs to a single additional commitment
+- **Anemoi Hash Integration**: Efficient hash function implementation for Merkle trees
+- **Multiple Circuit Types**: Support for various zero-knowledge circuits
 
 
-This is a fork of [plonkish](https://github.com/han0110/plonkish) implementing HyperPlonk with Zeromorph shift optimization. The repository focuses on zero-knowledge proof systems, specifically optimizing the shift operations in HyperPlonk using the Zeromorph approach to reduce exponential costs to just one additional commitment.
 
-Key implementations:
-- **Zeromorph PCS**: `plonkish_backend/src/pcs/multilinear/zeromorph.rs` - Main polynomial commitment scheme with shift support
-- **HyperPlonk Backend**: `plonkish_backend/src/backend/hyperplonk/` - Complete HyperPlonk implementation
-- **Anemoi Hash**: `plonkish_backend/src/anemoi_hash/` and `plonkish_backend/src/backend/hyperplonk/util.rs` - Anemoi hash and jive CRH circuits
+## 🛠 Installation
+
+### Prerequisites
+
+- **Rust**: Version 1.70 or higher
+- **System Requirements**: 
+  - Memory: 8GB RAM minimum (16GB recommended)
+  - Storage: 2GB free space
+  - OS: Linux, macOS, or Windows
+
+### Install Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+```
+
+### Build from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/Noi1r/plonkish.git
+cd plonkish
+
+# Build in release mode (recommended)
+cargo build --release
+
+# Or build in development mode
+cargo build
+```
+
+## 🎯 Usage
+
+### Basic Example
+
+```rust
+use plonkish_backend::{
+    backend::{PlonkishBackend, hyperplonk::HyperPlonk},
+    pcs::multilinear::Zeromorph,
+    util::transcript::Keccak256Transcript,
+};
+use halo2_curves::bn256::Bn256;
+
+// Initialize the proving system
+type ProofSystem = HyperPlonk<Zeromorph<UnivariateKzg<Bn256>>>;
+
+// Setup phase
+let circuit_info = create_circuit_info();
+let param = ProofSystem::setup(&circuit_info, &mut rng)?;
+let (prover_param, verifier_param) = ProofSystem::preprocess(&param, &circuit_info)?;
+
+// Proving phase
+let circuit = create_circuit();
+let mut transcript = Keccak256Transcript::new();
+ProofSystem::prove(&prover_param, &circuit, &mut transcript, &mut rng)?;
+
+// Verification phase
+let mut transcript = Keccak256Transcript::new();
+ProofSystem::verify(&verifier_param, &instances, &mut transcript, &mut rng)?;
+```
+
+### Circuit Examples
+
+#### Merkle Tree Membership Proof
+
+```rust
+use plonkish_backend::backend::hyperplonk::util::merkle::*;
+
+// Create a Merkle membership proof circuit
+let (circuit_info, circuit) = merkle_membership_proof_circuit::<Fr, Lexical>(
+    num_vars,
+    &proof_nodes,
+    &positions,
+    &leaf_value,
+    &root_hash,
+    rng
+);
+```
+
+#### Anemoi Hash Circuit
+
+```rust
+use plonkish_backend::backend::hyperplonk::util::anemoi::*;
+
+// Create an Anemoi hash circuit
+let (circuit_info, circuit) = rand_anemoi_hash_circuit_with_flatten::<Fr, Lexical>(
+    preprocess_rng,
+    witness_rng
+);
+```
 
 ## Commands
 
@@ -123,4 +251,4 @@ The repository's main contribution is the shift optimization:
 
 - Types for plonkish circuit structure are ported from https://github.com/zcash/halo2.
 - Most part of [HyperPlonk](https://eprint.iacr.org/2022/1355.pdf) and multilinear KZG PCS implementation are ported from https://github.com/EspressoSystems/hyperplonk with reorganization and extension to support `halo2` constraint system.
-- Most part of [Brakedown](https://eprint.iacr.org/2021/1043.pdf) specification and multilinear PCS implementation are ported from https://github.com/conroi/lcpc.
+

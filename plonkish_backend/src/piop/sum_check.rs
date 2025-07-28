@@ -1,5 +1,5 @@
 use crate::{
-    piop::sum_check::classic::eval::Evaluations, // 假设 Evaluations 在这里
+    piop::sum_check::classic::eval::Evaluations, 
     piop::sum_check::classic::ClassicSumCheckRoundMessage,
     poly::multilinear::MultilinearPolynomial,
     util::{

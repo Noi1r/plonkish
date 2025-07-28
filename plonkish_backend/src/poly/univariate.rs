@@ -443,7 +443,7 @@ impl<F: Field, BF: Borrow<F>, P: Borrow<UnivariatePolynomial<F>>> Sum<(BF, P)>
     }
 }
 
-// 在 univariate.rs 中添加这些具体的实现
+// Add these concrete implementations in univariate.rs
 
 // &Poly * Scalar -> Poly
 impl<F: Field> Mul<F> for &UnivariatePolynomial<F> {
@@ -451,11 +451,11 @@ impl<F: Field> Mul<F> for &UnivariatePolynomial<F> {
 
     fn mul(self, rhs: F) -> Self::Output {
         if rhs == F::ZERO {
-            // 返回 Monomial 基下的零多项式
+            // Return zero polynomial under Monomial basis
             return UnivariatePolynomial::monomial(Vec::new());
         }
         let mut output = self.clone();
-        // 使用下面定义的 MulAssign<F>
+        // Use MulAssign<F> defined below
         output *= rhs;
         output
     }
@@ -469,19 +469,19 @@ impl<F: Field> MulAssign<F> for UnivariatePolynomial<F> {
                 Monomial => self.coeffs.clear(),
                 Lagrange => self.coeffs.fill(F::ZERO),
             }
-            // 确保零多项式在 Monomial 基下被正确处理
+            // Ensure zero polynomial is correctly handled under Monomial basis
             if self.basis == Monomial {
                 self.truncate_leading_zeros();
             }
         } else if rhs != F::ONE {
-            let rhs_owned = rhs; // 捕获 rhs 以用于闭包
+            let rhs_owned = rhs; // Capture rhs for closure
             parallelize(&mut self.coeffs, |(lhs, _)| {
                 for lhs_coeff in lhs.iter_mut() {
                     *lhs_coeff *= rhs_owned;
                 }
             });
         }
-        // 不需要 truncate_leading_zeros，因为乘以非零标量不会产生新的前导零
+        // No need for truncate_leading_zeros, as multiplying by non-zero scalar doesn't produce new leading zeros
     }
 }
 
@@ -499,7 +499,7 @@ impl<F: Field> Mul<&UnivariatePolynomial<F>> for &UnivariatePolynomial<F> {
         );
 
         if self.is_empty() || rhs.is_empty() {
-            // 返回 Monomial 基下的零多项式
+            // Return zero polynomial under Monomial basis
             return UnivariatePolynomial::monomial(Vec::new());
         }
 
@@ -510,11 +510,11 @@ impl<F: Field> Mul<&UnivariatePolynomial<F>> for &UnivariatePolynomial<F> {
                 continue;
             }
             for j in 0..rhs.coeffs.len() {
-                // 可选优化: if !rhs.coeffs[j].is_zero_vartime() { }
+                // Optional optimization: if !rhs.coeffs[j].is_zero_vartime() { }
                 result_coeffs[i + j] += self.coeffs[i] * rhs.coeffs[j];
             }
         }
-        // 结果已经是 Monomial 基
+        // Result is already in Monomial basis
         UnivariatePolynomial::monomial(result_coeffs)
     }
 }
@@ -522,7 +522,7 @@ impl<F: Field> Mul<&UnivariatePolynomial<F>> for &UnivariatePolynomial<F> {
 impl<F: Field> Mul<F> for UnivariatePolynomial<F> {
     type Output = UnivariatePolynomial<F>;
     fn mul(self, rhs: F) -> Self::Output {
-        // 委托给 &Poly * Scalar 实现
+        // Delegate to &Poly * Scalar implementation
         &self * rhs
     }
 }

@@ -100,7 +100,7 @@ pub trait PolynomialCommitmentScheme<F: Field>: Clone + Debug {
 
     fn verify_shifted_evaluation(
         vp: &Self::VerifierParam,                     // ZeromorphKzgVerifierParam<M>
-        comm: &Self::Commitment,                      // 对原始合并多项式 f 的承诺 C_f
+        comm: &Self::Commitment,                      // Commitment to the original merged polynomial f as C_f
         point: &Point<F, Self::Polynomial>,           // Vec<M::Scalar> (the point 'u')
         value: &F,                                    // Claimed value v = f_shifted(u)
         rotation: &crate::util::expression::Rotation, //
@@ -189,7 +189,9 @@ pub trait PolynomialCommitmentScheme<F: Field>: Clone + Debug {
     }
 }
 
-///在batch_open的时候，需要同时open多个多项式，所以需要一个结构体来存储多项式和点的索引
+/// Structure for batch opening - stores polynomial and point indices
+/// When batch_open is called, multiple polynomials need to be opened simultaneously,
+/// so this structure stores the polynomial and point indices
 #[derive(Clone, Debug)]
 pub struct Evaluation<F> {
     poly: usize,

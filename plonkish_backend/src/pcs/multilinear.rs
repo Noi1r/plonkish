@@ -68,7 +68,7 @@ fn quotients<F: Field, T>(
         .rev()
         .map(|(x_i, num_vars)| {
             let timer = start_timer(|| "quotients");
-            // 这里的修改会改变remainder的值
+            // This modification changes the value of remainder
             let (remaimder_lo, remainder_hi) = remainder.split_at_mut(1 << num_vars);
             let mut quotient = vec![F::ZERO; remaimder_lo.len()];
 
@@ -255,7 +255,7 @@ mod additive {
         Pcs: PolynomialCommitmentScheme<F, Polynomial = MultilinearPolynomial<F>>,
         Pcs::Commitment: Additive<F>,
     {
-        // 验证多项式和点的维度
+        // Verify polynomial and point dimensions
         validate_input("batch open", num_vars, polys.clone(), points)?;
 
         if cfg!(feature = "sanity-check") {
@@ -576,14 +576,14 @@ mod additive {
 
         Pcs::verify(vp, &commitment_cur, &points[0], &tilde_gs_sum, transcript).is_ok();
 
-        // --- Part 2: 验证旋转的求值 ---
+        // --- Part 2: Verify rotated evaluations ---
         let eval_rotations = evals
             .iter()
             .filter(|eval| eval.rotation() != Rotation::cur())
             .collect_vec();
 
         if !eval_rotations.is_empty() {
-            // 按 rotation 分组
+            // Group by rotation
             let mut evals_by_rotation: BTreeMap<Rotation, Vec<&Evaluation_for_shift<F>>> =
                 BTreeMap::new();
             for eval in eval_rotations {
@@ -593,7 +593,7 @@ mod additive {
                     .push(eval);
             }
 
-            // 逐个处理 rotation 分组
+            // Process each rotation group
             for (rotation, rotation_evals) in evals_by_rotation {
                 let num_rotated = rotation_evals.len();
 
@@ -606,27 +606,27 @@ mod additive {
                 let challenges_rotated_combine = transcript.squeeze_challenges(ell_rotated);
                 let eq_xt_rotated = MultilinearPolynomial::eq_xy(&challenges_rotated_combine);
 
-                // 计算该分组的合并求值结果
+                // Calculate merged evaluation result for this group
                 let merged_value = inner_product(
-                    rotation_evals.iter().map(|eval| eval.value()), // 输入 &F
-                    eq_xt_rotated.evals()[..num_rotated].iter(),    // 需要 F
+                    rotation_evals.iter().map(|eval| eval.value()), // Input &F
+                    eq_xt_rotated.evals()[..num_rotated].iter(),    // Need F
                 );
 
-                // 计算该分组的合并承诺
+                // Calculate merged commitment for this group
                 let merged_comm_rotated = {
                     let scalars = eq_xt_rotated.evals()[..num_rotated].to_vec();
                     let bases = rotation_evals.iter().map(|eval| comms[eval.poly()]);
                     Pcs::Commitment::msm(&scalars, bases)
                 };
 
-                // 调用特定于 Pcs 的移位验证函数
+                // Call PCS-specific shift verification function
                 Pcs::verify_shifted_evaluation(
                     vp,
-                    &merged_comm_rotated, // 对合并后的 f 的承诺
-                    &points[0],           // 求值点 u
-                    &merged_value,        // 合并后的声称值 v = f_d(u)
-                    &rotation,            // 当前的移位信息
-                    transcript,           // 包含证明数据的 transcript
+                    &merged_comm_rotated, // Commitment to merged f
+                    &points[0],           // Evaluation point u
+                    &merged_value,        // Merged claimed value v = f_d(u)
+                    &rotation,            // Current rotation information
+                    transcript,           // Transcript containing proof data
                 )?;
             }
         }
