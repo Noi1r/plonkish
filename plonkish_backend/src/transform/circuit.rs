@@ -23,9 +23,9 @@ pub struct ZKWASMCircuit<'a, E: MultiMillerLoop, C: ZkCircuit<E::Scalar>> {
 
 pub fn get_zkwasm_circuit<D: WitnessEncoding, E: MultiMillerLoop, T>(
     k: u32,
-    circuit: &[T],
+    circuit: &'_ [T],
     instances: Vec<E::Scalar>,
-) -> ZKWASMCircuit<E, T>
+) -> ZKWASMCircuit<'_, E, T>
 where
     T: ZkCircuit<E::Scalar>,
 {
@@ -34,7 +34,7 @@ where
     let config = T::configure(&mut cs);
 
     let cs: ConstraintSystem<Fr> = convert_constraint_system_fr::<E>(cs);
-
+    let row_mapping: Vec<usize> = (0..(1 << k)).collect();
     // Convert Gate Constraints.
     ZKWASMCircuit {
         circuit,
@@ -47,6 +47,7 @@ where
             .map(|scalar| from_scalar::<E>(&scalar))
             .collect::<Vec<Fr>>()],
         instances_scalar: vec![instances],
-        row_mapping: D::row_mapping(k as usize),
+        // row_mapping: D::row_mapping(k as usize),
+        row_mapping,
     }
 }

@@ -171,7 +171,7 @@ impl<'a, E: MultiMillerLoop, C: ZkCircuit<E::Scalar>> PlonkishCircuit<Fr>
             k,
             config,
             circuit,
-            // row_mapping,
+            row_mapping,
             cs,
             ..
         } = self;
@@ -186,10 +186,9 @@ impl<'a, E: MultiMillerLoop, C: ZkCircuit<E::Scalar>> PlonkishCircuit<Fr>
                 (key, column_idx[&key])
             })
             .collect();
-        let row_mapping: Vec<usize> = (0..(1 << k)).collect();
         let (fixed, permutation) = get_preprocess_polys_and_permutations::<E::G1Affine, C>(
             k.clone(),
-            &row_mapping,
+            row_mapping,
             permutation_column_idx,
             circuit,
             config,
@@ -225,12 +224,11 @@ impl<'a, E: MultiMillerLoop, C: ZkCircuit<E::Scalar>> PlonkishCircuit<Fr>
 
         let instances_slices: Vec<&[E::Scalar]> =
             self.instances_scalar.iter().map(|v| v.as_slice()).collect();
-        let row_mapping: Vec<usize> = (0..(1 << self.k)).collect();
+
         let witness_polys = get_witness::<E::G1Affine, C>(
             self.k,
             instances_slices.as_slice(),
-            // &self.row_mapping,
-            &row_mapping,
+            &self.row_mapping,
             &self.circuit,
         )
         .map_err(|e| {
