@@ -70,7 +70,8 @@ impl<F: Field, C: CircuitExt<F>> Halo2Circuit<F, C> {
         let num_witness_polys = num_by_phase(&cs.advice_column_phase());
         let advice_idx_in_phase = idx_in_phase(&cs.advice_column_phase());
         let challenge_idx = idx_order_by_phase(&cs.challenge_phase(), 0);
-        let row_mapping = E::row_mapping(k);
+        // let row_mapping = E::row_mapping(k);
+        let row_mapping: Vec<usize> = (0..(1 << k)).collect();
 
         Self {
             k: k as u32,
