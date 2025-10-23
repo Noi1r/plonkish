@@ -44,7 +44,7 @@ cargo test --release
 
 ### Prerequisites
 
-- **Rust**: Version 1.70 or higher
+- **Rust**: Version 1.82 or higher
 - **System Requirements**: 
   - Memory: 8GB RAM minimum (16GB recommended)
   - Storage: 2GB free space
